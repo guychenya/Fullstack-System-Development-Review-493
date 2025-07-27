@@ -16,7 +16,7 @@ const menuItems = [
 
 const Sidebar = () => {
   return (
-    <motion.div 
+    <motion.div
       className="w-64 bg-dark-surface border-r border-dark-border"
       initial={{ x: -100, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
@@ -26,10 +26,10 @@ const Sidebar = () => {
         <div className="flex items-center space-x-2 mb-8">
           <SafeIcon icon={FiZap} className="text-2xl text-vibe-purple" />
           <h1 className="text-xl font-bold bg-gradient-to-r from-vibe-purple to-vibe-blue bg-clip-text text-transparent">
-            VibeCoding
+            FluxCode
           </h1>
         </div>
-        
+
         <nav className="space-y-2 sidebar-scroll hover-show-scrollbar smooth-scroll overflow-y-auto max-h-[calc(100vh-150px)]">
           {menuItems.map((item) => (
             <NavLink

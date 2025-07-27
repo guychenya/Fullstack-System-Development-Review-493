@@ -89,7 +89,6 @@ const Dashboard = () => {
           <ProductivityChart />
           <RecentProjects />
         </div>
-        
         <div className="space-y-6">
           <VibeSelector />
           <QuickStats />

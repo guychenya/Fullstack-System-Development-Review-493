@@ -17,7 +17,7 @@ const Login = () => {
   const handleAuth = (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     // Simulate login
     setTimeout(() => {
       login({
@@ -26,14 +26,13 @@ const Login = () => {
         phone,
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face'
       });
-      toast.success(isSignUp ? 'Account created successfully!' : 'Welcome to VibeCoding!');
+      toast.success(isSignUp ? 'Account created successfully!' : 'Welcome to FluxCode!');
       setLoading(false);
     }, 1000);
   };
 
   const handleSocialAuth = (provider) => {
     setLoading(true);
-    
     // Simulate social login
     setTimeout(() => {
       login({
@@ -64,7 +63,7 @@ const Login = () => {
             <SafeIcon icon={FiZap} className="text-2xl text-white" />
           </motion.div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-vibe-purple to-vibe-blue bg-clip-text text-transparent">
-            VibeCoding
+            FluxCode
           </h1>
           <p className="text-gray-400 mt-2">Next-Generation Development Experience</p>
         </div>
@@ -77,10 +76,7 @@ const Login = () => {
               Email Address
             </label>
             <div className="relative">
-              <SafeIcon 
-                icon={FiUser} 
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
-              />
+              <SafeIcon icon={FiUser} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="email"
                 value={email}
@@ -104,10 +100,7 @@ const Login = () => {
                 Phone Number
               </label>
               <div className="relative">
-                <SafeIcon 
-                  icon={FiPhone} 
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
-                />
+                <SafeIcon icon={FiPhone} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="tel"
                   value={phone}
@@ -125,10 +118,7 @@ const Login = () => {
               Password
             </label>
             <div className="relative">
-              <SafeIcon 
-                icon={FiLock} 
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
-              />
+              <SafeIcon icon={FiLock} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="password"
                 value={password}

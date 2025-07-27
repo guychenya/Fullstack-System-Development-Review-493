@@ -7,21 +7,10 @@ import FileExplorer from '../components/FileExplorer';
 import Terminal from '../components/Terminal';
 import toast from 'react-hot-toast';
 
-const { 
-  FiPlay, 
-  FiSave, 
-  FiSettings, 
-  FiMaximize2, 
-  FiShare2, 
-  FiDownload,
-  FiCopy,
-  FiClipboard,
-  FiRefreshCw,
-  FiGitBranch
-} = FiIcons;
+const { FiPlay, FiSave, FiSettings, FiMaximize2, FiShare2, FiDownload, FiCopy, FiClipboard, FiRefreshCw, FiGitBranch } = FiIcons;
 
 const CodeEditor = () => {
-  const [code, setCode] = useState(`// Welcome to VibeCoding Editor
+  const [code, setCode] = useState(`// Welcome to FluxCode Editor
 function greetDeveloper() {
   console.log("Hello, Developer! Ready to code with the perfect vibe?");
   
@@ -32,6 +21,7 @@ function greetDeveloper() {
 }
 
 greetDeveloper();`);
+
   const [activeFile, setActiveFile] = useState('main.js');
   const [showTerminal, setShowTerminal] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
@@ -48,7 +38,7 @@ greetDeveloper();`);
   const runCode = () => {
     setIsRunning(true);
     setTerminalOutput([]);
-    
+
     // Create a safe execution environment
     const runInSandbox = (codeStr) => {
       try {
@@ -58,21 +48,19 @@ greetDeveloper();`);
         console.log = (...args) => {
           logs.push(args.join(' '));
         };
-        
+
         // Execute the code
         const result = new Function(codeStr)();
-        
+
         // Restore original console.log
         console.log = originalConsoleLog;
-        
-        return { 
+
+        return {
           result: result !== undefined ? String(result) : undefined,
           logs
         };
       } catch (error) {
-        return { 
-          error: error.message
-        };
+        return { error: error.message };
       }
     };
 
@@ -81,26 +69,25 @@ greetDeveloper();`);
         ${code}
         //# sourceURL=user-code.js
       `);
-      
+
       const newOutput = [];
-      
       if (output.logs && output.logs.length) {
         output.logs.forEach(log => {
           newOutput.push({ type: 'output', content: log });
         });
       }
-      
+
       if (output.result !== undefined) {
         newOutput.push({ type: 'output', content: `=> ${output.result}` });
       }
-      
+
       if (output.error) {
         newOutput.push({ type: 'error', content: `Error: ${output.error}` });
       }
-      
+
       setTerminalOutput(newOutput);
       setIsRunning(false);
-      
+
       if (!output.error) {
         toast.success('Code executed successfully!');
       } else {
@@ -112,9 +99,8 @@ greetDeveloper();`);
   const saveCode = () => {
     // In a real app, this would save to a database or file system
     toast.success(`File ${activeFile} saved successfully!`);
-    
     // Simulate saving to localStorage
-    localStorage.setItem(`vibe-code-${activeFile}`, code);
+    localStorage.setItem(`flux-code-${activeFile}`, code);
   };
 
   const copyCode = () => {
@@ -125,7 +111,7 @@ greetDeveloper();`);
 
   const downloadCode = () => {
     const element = document.createElement('a');
-    const file = new Blob([code], {type: 'text/javascript'});
+    const file = new Blob([code], { type: 'text/javascript' });
     element.href = URL.createObjectURL(file);
     element.download = activeFile;
     document.body.appendChild(element);
@@ -139,10 +125,7 @@ greetDeveloper();`);
   };
 
   const updateSettings = (key, value) => {
-    setEditorSettings({
-      ...editorSettings,
-      [key]: value
-    });
+    setEditorSettings({ ...editorSettings, [key]: value });
   };
 
   // Update terminal when running code
@@ -156,7 +139,7 @@ greetDeveloper();`);
 
   return (
     <div className="h-full flex flex-col">
-      <motion.div 
+      <motion.div
         className="flex items-center justify-between bg-dark-surface border-b border-dark-border px-4 py-2"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -170,11 +153,14 @@ greetDeveloper();`);
             </div>
           </div>
         </div>
+
         <div className="flex items-center space-x-2">
-          <button 
+          <button
             onClick={runCode}
             disabled={isRunning}
-            className={`p-2 ${isRunning ? 'text-vibe-green animate-pulse' : 'text-gray-400 hover:text-vibe-green'} transition-colors relative group`}
+            className={`p-2 ${
+              isRunning ? 'text-vibe-green animate-pulse' : 'text-gray-400 hover:text-vibe-green'
+            } transition-colors relative group`}
             title="Run code"
           >
             <SafeIcon icon={isRunning ? FiRefreshCw : FiPlay} className="text-lg" />
@@ -182,8 +168,8 @@ greetDeveloper();`);
               Run code
             </span>
           </button>
-          
-          <button 
+
+          <button
             onClick={saveCode}
             className="p-2 text-gray-400 hover:text-vibe-blue transition-colors relative group"
             title="Save file"
@@ -193,8 +179,8 @@ greetDeveloper();`);
               Save file
             </span>
           </button>
-          
-          <button 
+
+          <button
             onClick={copyCode}
             className="p-2 text-gray-400 hover:text-vibe-purple transition-colors relative group"
             title="Copy to clipboard"
@@ -204,8 +190,8 @@ greetDeveloper();`);
               Copy code
             </span>
           </button>
-          
-          <button 
+
+          <button
             onClick={downloadCode}
             className="p-2 text-gray-400 hover:text-vibe-orange transition-colors relative group"
             title="Download file"
@@ -215,10 +201,12 @@ greetDeveloper();`);
               Download file
             </span>
           </button>
-          
-          <button 
+
+          <button
             onClick={toggleSettings}
-            className={`p-2 ${showSettings ? 'text-vibe-purple' : 'text-gray-400 hover:text-white'} transition-colors relative group`}
+            className={`p-2 ${
+              showSettings ? 'text-vibe-purple' : 'text-gray-400 hover:text-white'
+            } transition-colors relative group`}
             title="Editor settings"
           >
             <SafeIcon icon={FiSettings} className="text-lg" />
@@ -226,8 +214,8 @@ greetDeveloper();`);
               Editor settings
             </span>
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setShowTerminal(!showTerminal)}
             className="p-2 text-gray-400 hover:text-white transition-colors relative group"
             title={showTerminal ? "Hide terminal" : "Show terminal"}
@@ -243,14 +231,14 @@ greetDeveloper();`);
       {/* Settings Modal */}
       <AnimatePresence>
         {showSettings && (
-          <motion.div 
+          <motion.div
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowSettings(false)}
           >
-            <motion.div 
+            <motion.div
               className="bg-dark-surface border border-dark-border rounded-xl p-6 w-full max-w-md"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
@@ -275,7 +263,7 @@ greetDeveloper();`);
                     <option value="github">GitHub</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Font Size
@@ -292,7 +280,7 @@ greetDeveloper();`);
                     <span className="ml-2 text-white">{editorSettings.fontSize}px</span>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Tab Size
@@ -313,7 +301,7 @@ greetDeveloper();`);
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-300">
                     Word Wrap
@@ -331,7 +319,7 @@ greetDeveloper();`);
                     />
                   </button>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-gray-300">
                     Auto Save
@@ -350,7 +338,7 @@ greetDeveloper();`);
                   </button>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   onClick={() => setShowSettings(false)}
@@ -366,6 +354,7 @@ greetDeveloper();`);
 
       <div className="flex-1 flex overflow-hidden">
         <FileExplorer onFileSelect={setActiveFile} />
+        
         <motion.div
           className="flex-1 flex flex-col"
           initial={{ opacity: 0, x: 20 }}
@@ -376,7 +365,7 @@ greetDeveloper();`);
             <CodeMirrorEditor 
               value={code} 
               onChange={setCode} 
-              language="javascript"
+              language="javascript" 
             />
           </div>
           
@@ -389,7 +378,7 @@ greetDeveloper();`);
             >
               <Terminal 
                 initialOutput={[
-                  { type: 'output', content: 'Welcome to VibeCoding Terminal! 🚀' },
+                  { type: 'output', content: 'Welcome to FluxCode Terminal! 🚀' },
                   { type: 'output', content: 'Type "run" to execute your code.' }
                 ]}
                 customOutput={terminalOutput}

@@ -7,18 +7,7 @@ import { useVibeStore } from '../../store/vibeStore';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
 
-const {
-  FiBell,
-  FiUser,
-  FiLogOut,
-  FiActivity,
-  FiSettings,
-  FiX,
-  FiCheck,
-  FiInfo,
-  FiAlertCircle,
-  FiTrendingUp
-} = FiIcons;
+const { FiBell, FiUser, FiLogOut, FiActivity, FiSettings, FiX, FiCheck, FiInfo, FiAlertCircle, FiTrendingUp } = FiIcons;
 
 const Header = () => {
   const navigate = useNavigate();
@@ -83,8 +72,7 @@ const Header = () => {
   // Simulate new notifications
   useEffect(() => {
     const interval = setInterval(() => {
-      if (Math.random() > 0.7) {
-        // 30% chance every 30 seconds
+      if (Math.random() > 0.7) { // 30% chance every 30 seconds
         const newNotification = {
           id: Date.now(),
           message: getRandomNotificationMessage(),
@@ -109,20 +97,20 @@ const Header = () => {
         notificationsListRef.current.classList.add('scrollbar-fade-in');
       }
     };
-    
+
     const handleMouseLeave = () => {
       if (notificationsListRef.current) {
         notificationsListRef.current.classList.add('hover-show-scrollbar');
         notificationsListRef.current.classList.remove('scrollbar-fade-in');
       }
     };
-    
+
     const notificationsList = notificationsListRef.current;
     if (notificationsList) {
       notificationsList.addEventListener('mouseenter', handleMouseEnter);
       notificationsList.addEventListener('mouseleave', handleMouseLeave);
     }
-    
+
     return () => {
       if (notificationsList) {
         notificationsList.removeEventListener('mouseenter', handleMouseEnter);
@@ -163,8 +151,7 @@ const Header = () => {
     switch (type) {
       case 'success': return FiCheck;
       case 'warning': return FiAlertCircle;
-      case 'info':
-      default: return FiInfo;
+      case 'info': default: return FiInfo;
     }
   };
 
@@ -172,30 +159,28 @@ const Header = () => {
     switch (type) {
       case 'success': return 'text-vibe-green';
       case 'warning': return 'text-vibe-orange';
-      case 'info':
-      default: return 'text-vibe-blue';
+      case 'info': default: return 'text-vibe-blue';
     }
   };
 
   const markAsRead = (notificationId) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId ? { ...notification, read: true } : notification
-      )
-    );
+    setNotifications(prev => prev.map(notification =>
+      notification.id === notificationId
+        ? { ...notification, read: true }
+        : notification
+    ));
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+    setNotifications(prev => prev.map(notification => ({
+      ...notification,
+      read: true
+    })));
     toast.success('All notifications marked as read');
   };
 
   const deleteNotification = (notificationId) => {
-    setNotifications(prev =>
-      prev.filter(notification => notification.id !== notificationId)
-    );
+    setNotifications(prev => prev.filter(notification => notification.id !== notificationId));
     toast.success('Notification deleted');
   };
 
@@ -302,7 +287,7 @@ const Header = () => {
                   </div>
 
                   {/* Notifications List with improved scrolling */}
-                  <div 
+                  <div
                     ref={notificationsListRef}
                     className="max-h-80 overflow-y-auto hover-show-scrollbar smooth-scroll"
                   >
@@ -325,11 +310,9 @@ const Header = () => {
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between">
-                                <p
-                                  className={`text-sm ${
-                                    !notification.read ? 'text-white font-medium' : 'text-gray-300'
-                                  }`}
-                                >
+                                <p className={`text-sm ${
+                                  !notification.read ? 'text-white font-medium' : 'text-gray-300'
+                                }`}>
                                   {notification.message}
                                 </p>
                                 <button

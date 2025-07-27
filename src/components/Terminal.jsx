@@ -7,12 +7,10 @@ const { FiTerminal, FiX, FiMinus, FiMaximize2 } = FiIcons;
 
 const Terminal = ({ initialOutput = [], customOutput = [], onCommand }) => {
   const [commands, setCommands] = useState([
-    ...(initialOutput.length > 0
-      ? initialOutput
-      : [
-          { type: 'output', content: 'Welcome to VibeCoding Terminal! 🚀' },
-          { type: 'output', content: 'Type "help" for available commands.' },
-        ])
+    ...(initialOutput.length > 0 ? initialOutput : [
+      { type: 'output', content: 'Welcome to FluxCode Terminal! 🚀' },
+      { type: 'output', content: 'Type "help" for available commands.' },
+    ])
   ]);
   const [currentCommand, setCurrentCommand] = useState('');
   const terminalRef = useRef(null);
@@ -55,71 +53,39 @@ const Terminal = ({ initialOutput = [], customOutput = [], onCommand }) => {
 
     switch (cmd.toLowerCase().trim()) {
       case 'help':
-        newCommands.push({
-          type: 'output',
-          content: 'Available commands: help, clear, ls, pwd, echo, vibe, npm, git, run'
-        });
+        newCommands.push({ type: 'output', content: 'Available commands: help, clear, ls, pwd, echo, vibe, npm, git, run' });
         break;
       case 'clear':
         setCommands([]);
         return;
       case 'ls':
-        newCommands.push({
-          type: 'output',
-          content: 'src/ public/ package.json README.md node_modules/ .gitignore'
-        });
+        newCommands.push({ type: 'output', content: 'src/ public/ package.json README.md node_modules/ .gitignore' });
         break;
       case 'pwd':
-        newCommands.push({
-          type: 'output',
-          content: '/home/developer/vibe-coding-project'
-        });
+        newCommands.push({ type: 'output', content: '/home/developer/fluxcode-project' });
         break;
       case 'vibe':
-        newCommands.push({
-          type: 'output',
-          content: '🎯 Current vibe: Focused | Productivity: 87%'
-        });
+        newCommands.push({ type: 'output', content: '🎯 Current vibe: Focused | Productivity: 87%' });
         break;
       case 'run':
         newCommands.push({ type: 'output', content: 'Running code...' });
         break;
       case 'npm start':
       case 'npm run dev':
-        newCommands.push({
-          type: 'output',
-          content:
-            '🚀 Starting development server...\n> vibe-coding-tool@1.0.0 dev\n> vite\n\n VITE v5.4.2 ready in 180 ms\n\n ➜ Local: http://localhost:5173/\n ➜ Network: use --host to expose'
-        });
+        newCommands.push({ type: 'output', content: '🚀 Starting development server...\n> fluxcode-tool@1.0.0 dev\n> vite\n\n VITE v5.4.2 ready in 180 ms\n\n ➜ Local: http://localhost:5173/\n ➜ Network: use --host to expose' });
         break;
       case 'git status':
-        newCommands.push({
-          type: 'output',
-          content:
-            'On branch main\nYour branch is up to date with \'origin/main\'.\n\nChanges not staged for commit:\n modified: src/store/vibeStore.js\n\nno changes added to commit'
-        });
+        newCommands.push({ type: 'output', content: 'On branch main\nYour branch is up to date with \'origin/main\'.\n\nChanges not staged for commit:\n modified: src/store/vibeStore.js\n\nno changes added to commit' });
         break;
       default:
         if (cmd.startsWith('echo ')) {
-          newCommands.push({
-            type: 'output',
-            content: cmd.substring(5)
-          });
+          newCommands.push({ type: 'output', content: cmd.substring(5) });
         } else if (cmd.startsWith('npm ')) {
-          newCommands.push({
-            type: 'output',
-            content: `Executing npm command: ${cmd.substring(4)}\nPackage operation completed successfully.`
-          });
+          newCommands.push({ type: 'output', content: `Executing npm command: ${cmd.substring(4)}\nPackage operation completed successfully.` });
         } else if (cmd.startsWith('git ')) {
-          newCommands.push({
-            type: 'output',
-            content: `Executing git command: ${cmd.substring(4)}\nGit operation completed successfully.`
-          });
+          newCommands.push({ type: 'output', content: `Executing git command: ${cmd.substring(4)}\nGit operation completed successfully.` });
         } else {
-          newCommands.push({
-            type: 'output',
-            content: `Command not found: ${cmd}`
-          });
+          newCommands.push({ type: 'output', content: `Command not found: ${cmd}` });
         }
     }
 
@@ -163,6 +129,7 @@ const Terminal = ({ initialOutput = [], customOutput = [], onCommand }) => {
           </button>
         </div>
       </div>
+
       <div
         ref={terminalRef}
         className={`flex-1 p-4 font-mono text-sm overflow-y-auto smooth-scroll ${showScrollbar ? 'scrollbar-fade-in' : 'hover-show-scrollbar'}`}
@@ -171,11 +138,9 @@ const Terminal = ({ initialOutput = [], customOutput = [], onCommand }) => {
           <div
             key={index}
             className={`mb-1 ${
-              cmd.type === 'input'
-                ? 'text-vibe-green'
-                : cmd.type === 'error'
-                ? 'text-red-400'
-                : 'text-gray-300'
+              cmd.type === 'input' ? 'text-vibe-green' : 
+              cmd.type === 'error' ? 'text-red-400' : 
+              'text-gray-300'
             }`}
           >
             {cmd.content}
