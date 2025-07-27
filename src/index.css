@@ -1,0 +1,392 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Theme Variables */
+:root {
+  /* Dark Theme - Default */
+  --bg-color: #0F0F23;
+  --surface-color: #1A1A2E;
+  --border-color: #2D2D44;
+  --text-color: #ffffff;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+  --hover-bg: rgba(255, 255, 255, 0.1);
+  --modal-overlay: rgba(0, 0, 0, 0.5);
+  
+  /* Scrollbar Variables */
+  --scrollbar-width: 2px;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(139, 92, 246, 0.3); /* vibe-purple with low opacity */
+  --scrollbar-thumb-hover: rgba(139, 92, 246, 0.5); /* vibe-purple with medium opacity */
+}
+
+/* Light Theme */
+.light-theme {
+  --bg-color: #f8f9fa;
+  --surface-color: #ffffff;
+  --border-color: #e2e8f0;
+  --text-color: #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  --hover-bg: rgba(0, 0, 0, 0.05);
+  --modal-overlay: rgba(0, 0, 0, 0.3);
+  
+  /* Light theme scrollbar variables */
+  --scrollbar-thumb: rgba(139, 92, 246, 0.2);
+  --scrollbar-thumb-hover: rgba(139, 92, 246, 0.4);
+}
+
+/* Apply theme variables to common classes */
+.bg-dark-bg {
+  background-color: var(--bg-color) !important;
+}
+.bg-dark-surface {
+  background-color: var(--surface-color) !important;
+}
+.border-dark-border {
+  border-color: var(--border-color) !important;
+}
+
+/* Text colors */
+.text-white {
+  color: var(--text-color) !important;
+}
+.text-gray-300 {
+  color: var(--text-secondary) !important;
+}
+.text-gray-400, .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+/* Hover states */
+.hover\:bg-dark-bg:hover {
+  background-color: var(--hover-bg) !important;
+}
+.hover\:bg-dark-border:hover {
+  background-color: var(--hover-bg) !important;
+}
+.hover\:text-white:hover {
+  color: var(--text-color) !important;
+}
+
+/* Form elements - Enhanced accessibility */
+input, textarea, select {
+  background-color: var(--bg-color) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.7;
+}
+
+/* Ensure proper contrast for form inputs */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #8B5CF6;
+  border-color: #8B5CF6 !important;
+}
+
+/* Phone number specific styling */
+input[type="tel"] {
+  color: var(--text-color) !important;
+}
+
+/* Modal overlay */
+.bg-black\/50 {
+  background-color: var(--modal-overlay) !important;
+}
+
+/* Ultra-thin scrollbar implementation */
+/* Webkit browsers (Chrome, Safari, newer Edge) */
+::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+/* Component-specific scrollbar styling */
+.sidebar-scroll {
+  overflow-y: auto;
+  -ms-overflow-style: none; /* Hide scrollbar for IE and Edge */
+  scrollbar-gutter: stable; /* Prevent layout shift when scrollbar appears */
+}
+
+.chat-messages-scroll {
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-gutter: stable;
+}
+
+.content-scroll {
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-gutter: stable;
+}
+
+/* Hover effect - show scrollbar only on hover */
+@media (min-width: 768px) {
+  .hover-show-scrollbar {
+    --scrollbar-width: 0px;
+  }
+  
+  .hover-show-scrollbar:hover {
+    --scrollbar-width: 2px;
+  }
+}
+
+/* Hide scrollbar completely for some elements */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Smooth scrolling for better UX */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
+
+/* Code editor */
+.cm-editor {
+  background-color: var(--bg-color) !important;
+}
+.cm-content {
+  color: var(--text-color) !important;
+}
+
+/* Terminal */
+.font-mono {
+  background-color: var(--bg-color) !important;
+  color: var(--text-color) !important;
+}
+
+/* Toast notifications */
+[data-sonner-toaster] [data-sonner-toast] {
+  background-color: var(--surface-color) !important;
+  color: var(--text-color) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Preserve vibe colors */
+.text-vibe-purple {
+  color: #8B5CF6 !important;
+}
+.text-vibe-blue {
+  color: #3B82F6 !important;
+}
+.text-vibe-green {
+  color: #10B981 !important;
+}
+.text-vibe-orange {
+  color: #F59E0B !important;
+}
+.text-vibe-pink {
+  color: #EC4899 !important;
+}
+.bg-vibe-purple {
+  background-color: #8B5CF6 !important;
+}
+.bg-vibe-blue {
+  background-color: #3B82F6 !important;
+}
+.bg-vibe-green {
+  background-color: #10B981 !important;
+}
+.bg-vibe-orange {
+  background-color: #F59E0B !important;
+}
+.bg-vibe-pink {
+  background-color: #EC4899 !important;
+}
+
+/* Theme transitions */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Light theme specific overrides */
+.light-theme .bg-dark-surface {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.light-theme .border-dark-border {
+  border-color: #e2e8f0 !important;
+}
+
+/* Fix for gradients in light theme */
+.light-theme .bg-gradient-to-r {
+  background: linear-gradient(to right, #8B5CF6, #3B82F6) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+
+/* Fix for button hover states in light theme */
+.light-theme button:hover {
+  background-color: var(--hover-bg);
+}
+
+/* Fix for code editor in light theme */
+.light-theme .cm-editor {
+  background-color: #ffffff !important;
+}
+.light-theme .cm-content {
+  color: #1a202c !important;
+}
+
+/* Fix for terminal in light theme */
+.light-theme .terminal {
+  background-color: #f8f9fa !important;
+  color: #1a202c !important;
+}
+
+/* Opacity adjustments for light theme */
+.light-theme .bg-opacity-50 {
+  --tw-bg-opacity: 0.3;
+}
+
+/* Charts theme adaptation */
+.light-theme .echarts-for-react {
+  background: var(--surface-color) !important;
+}
+
+/* Social login buttons - Enhanced contrast */
+.social-btn-google {
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
+  border: 1px solid #d1d5db;
+}
+.social-btn-google:hover {
+  background-color: #f9fafb !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.social-btn-github {
+  background-color: #1f2937 !important;
+  color: #ffffff !important;
+  border: 1px solid #374151;
+}
+.social-btn-github:hover {
+  background-color: #111827 !important;
+}
+
+/* Enhanced accessibility for form labels */
+label {
+  color: var(--text-secondary) !important;
+  font-weight: 500;
+}
+
+/* Better focus indicators */
+button:focus, input:focus, textarea:focus, select:focus {
+  outline: 2px solid #8B5CF6;
+  outline-offset: 2px;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Improved button disabled states */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Enhanced placeholder text contrast */
+::placeholder {
+  opacity: 0.7 !important;
+}
+
+/* Better text selection contrast */
+::selection {
+  background-color: #8B5CF6;
+  color: white;
+}
+
+/* Scrollbar transition animations */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar-thumb {
+    transition: background 0.3s ease, width 0.3s ease;
+  }
+  
+  .scrollbar-fade-in {
+    animation: scrollbarFadeIn 0.3s ease forwards;
+  }
+  
+  @keyframes scrollbarFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+/* Mobile responsiveness improvements */
+@media (max-width: 640px) {
+  .social-login-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  /* Hide scrollbars completely on mobile */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+  
+  * {
+    scrollbar-width: none;
+  }
+}
