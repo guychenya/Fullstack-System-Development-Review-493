@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 const {
   FiFolder, FiFolderOpen, FiFile, FiPlus, FiMoreHorizontal, FiTrash2,
   FiEdit2, FiCode, FiImage, FiFileText, FiSettings, FiCopy, FiMessageCircle,
-  FiSave, FiInfo, FiX, FiPaperclip
+  FiSave, FiInfo, FiX, FiPaperclip, FiUpload
 } = FiIcons;
 
 const FileExplorer = ({ onFileSelect, onFileDrag }) => {
@@ -20,6 +20,9 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
   const [dropTarget, setDropTarget] = useState(null);
   const [savedFiles, setSavedFiles] = useState([]);
   const [showFileInfoTooltip, setShowFileInfoTooltip] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const fileInputRef = React.useRef(null);
   
   const [fileTree, setFileTree] = useState([
     {
@@ -183,11 +186,46 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
   const handleAddNewFile = () => {
     setShowNewFileModal(true);
     setShowMoreOptions(false);
+    setUploadedFile(null);
   };
 
   const createNewFile = (e) => {
     e.preventDefault();
     
+    // If we have an uploaded file, use its content and name
+    if (uploadedFile) {
+      const { name, content } = uploadedFile;
+      const filePath = `src/${name}`;
+      
+      const newFile = {
+        id: Date.now().toString(),
+        name: name,
+        type: 'file',
+        path: filePath
+      };
+
+      // Add new file to src folder by default
+      const updatedFileTree = updateTreeStructure(fileTree, 'src', (folder) => ({
+        ...folder,
+        children: [...folder.children, newFile]
+      }));
+      
+      setFileTree(updatedFileTree);
+      
+      // Add content for the new file
+      setFileContents(prev => ({
+        ...prev,
+        [filePath]: content
+      }));
+      
+      setNewFileName('');
+      setUploadedFile(null);
+      setShowNewFileModal(false);
+      toast.success(`Created new file: ${name}`);
+      return;
+    }
+    
+    // Regular file creation
     if (!newFileName.trim()) {
       toast.error('Please enter a file name');
       return;
@@ -525,6 +563,89 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     }
   };
 
+  // File upload handlers
+  const handleFileInputChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target.result;
+      setUploadedFile({
+        name: file.name,
+        content: content
+      });
+      
+      // Set the file name without extension for the input field
+      const nameWithoutExt = file.name.split('.')[0];
+      setNewFileName(nameWithoutExt);
+      
+      // Set the file type based on extension
+      const extension = file.name.split('.').pop().toLowerCase();
+      const validExtension = fileTypes.find(type => type.value === extension);
+      if (validExtension) {
+        setSelectedFileType(extension);
+      }
+      
+      toast.success(`File "${file.name}" uploaded`);
+    };
+    
+    reader.onerror = () => {
+      toast.error('Error reading file');
+    };
+    
+    reader.readAsText(file);
+  };
+
+  // Handle drag and drop for file upload
+  const handleModalDragOver = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const handleModalDragLeave = (e) => {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsDraggingOver(false);
+    }
+  };
+
+  const handleModalDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target.result;
+      setUploadedFile({
+        name: file.name,
+        content: content
+      });
+      
+      // Set the file name without extension for the input field
+      const nameWithoutExt = file.name.split('.')[0];
+      setNewFileName(nameWithoutExt);
+      
+      // Set the file type based on extension
+      const extension = file.name.split('.').pop().toLowerCase();
+      const validExtension = fileTypes.find(type => type.value === extension);
+      if (validExtension) {
+        setSelectedFileType(extension);
+      }
+      
+      toast.success(`File "${file.name}" dropped`);
+    };
+    
+    reader.onerror = () => {
+      toast.error('Error reading file');
+    };
+    
+    reader.readAsText(file);
+  };
+
   const renderFileTree = (items, depth = 0) => {
     return items.map((item, index) => (
       <motion.div
@@ -752,6 +873,9 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                 animate={{ scale: 1 }}
                 exit={{ scale: 0.95 }}
                 className="bg-dark-surface border border-dark-border rounded-xl p-6 w-full max-w-md"
+                onDragOver={handleModalDragOver}
+                onDragLeave={handleModalDragLeave}
+                onDrop={handleModalDrop}
               >
                 <h2 className="text-xl font-bold text-white mb-4">Create New File</h2>
                 
@@ -764,6 +888,7 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                       value={selectedFileType}
                       onChange={(e) => setSelectedFileType(e.target.value)}
                       className="w-full px-3 py-2 bg-dark-bg border border-dark-border rounded-lg focus:ring-2 focus:ring-vibe-purple focus:border-transparent outline-none text-white mb-3 no-scrollbar"
+                      disabled={uploadedFile !== null}
                     >
                       {fileTypes.map((type) => (
                         <option key={type.value} value={type.value}>
@@ -785,6 +910,7 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                         placeholder="Enter file name"
                         className="flex-1 px-3 py-2 bg-dark-bg border border-dark-border rounded-l-lg focus:ring-2 focus:ring-vibe-purple focus:border-transparent outline-none text-white"
                         autoFocus
+                        disabled={uploadedFile !== null}
                       />
                       <div className="px-3 py-2 bg-dark-border border border-l-0 border-dark-border rounded-r-lg text-gray-400 text-sm flex items-center">
                         .{selectedFileType}
@@ -792,10 +918,51 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                     </div>
                   </div>
                   
+                  {/* File upload section */}
+                  <div className={`mb-4 border-2 border-dashed p-6 rounded-lg text-center transition-all ${isDraggingOver ? 'border-vibe-purple bg-vibe-purple/10' : 'border-dark-border'} ${uploadedFile ? 'bg-vibe-green/10 border-vibe-green' : ''}`}>
+                    {uploadedFile ? (
+                      <div className="flex flex-col items-center space-y-2">
+                        <SafeIcon icon={getFileIcon(uploadedFile.name)} className="text-2xl text-vibe-green" />
+                        <p className="text-vibe-green">{uploadedFile.name}</p>
+                        <p className="text-xs text-gray-400">File ready to create</p>
+                        <button 
+                          type="button"
+                          onClick={() => setUploadedFile(null)}
+                          className="text-xs text-red-400 hover:underline mt-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <SafeIcon icon={FiUpload} className="text-2xl text-gray-400 mb-2 mx-auto" />
+                        <p className="text-sm text-gray-300 mb-2">
+                          Drag & drop a file here or
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1 bg-vibe-purple hover:bg-vibe-purple/80 text-white text-sm rounded transition-colors"
+                        >
+                          Browse files
+                        </button>
+                        <input 
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
+                          onChange={handleFileInputChange}
+                        />
+                      </>
+                    )}
+                  </div>
+                  
                   <div className="flex justify-end space-x-3">
                     <button
                       type="button"
-                      onClick={() => setShowNewFileModal(false)}
+                      onClick={() => {
+                        setShowNewFileModal(false);
+                        setUploadedFile(null);
+                      }}
                       className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
                     >
                       Cancel
@@ -803,6 +970,7 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                     <button
                       type="submit"
                       className="px-4 py-2 bg-vibe-purple hover:bg-vibe-purple/80 text-white rounded-lg transition-colors"
+                      disabled={!uploadedFile && !newFileName.trim()}
                     >
                       Create
                     </button>
