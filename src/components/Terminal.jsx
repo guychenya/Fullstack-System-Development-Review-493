@@ -1,13 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import SafeIcon from '../common/SafeIcon';
 import * as FiIcons from 'react-icons/fi';
 import { useLLMStore } from '../store/llmStore';
 import toast from 'react-hot-toast';
 
-const { FiTerminal, FiX, FiMinus, FiMaximize2, FiLoader, FiCode, FiCpu, FiBrain } = FiIcons;
+const { 
+  FiTerminal, FiX, FiMinus, FiMaximize2, FiLoader, FiCode, FiCpu, 
+  FiBrain, FiFile, FiFolder, FiUpload, FiPaperclip, FiHash, FiAtSign,
+  FiInfo
+} = FiIcons;
 
-const Terminal = ({ initialOutput = [], customOutput = [], onCommand }) => {
+const Terminal = ({ initialOutput = [], customOutput = [], onCommand, fileSystem }) => {
   const [commands, setCommands] = useState([
     ...(initialOutput.length > 0 ? initialOutput : [
       { type: 'output', content: 'Welcome to FluxCode Terminal! 🚀' },
@@ -18,56 +22,41 @@ const Terminal = ({ initialOutput = [], customOutput = [], onCommand }) => {
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [files, setFiles] = useState({
-    'main.js': `// Welcome to FluxCode Editor
-function greetDeveloper() {
-  console.log("Hello, Developer! Ready to code with the perfect vibe?");
-  
-  const vibes = ['focused', 'creative', 'relaxed'];
-  const currentVibe = vibes[Math.floor(Math.random() * vibes.length)];
-  
-  return \`Current vibe: \${currentVibe}\`;
-}
-
-greetDeveloper();`,
-    'app.js': `import React from 'react';
-
-function App() {
-  return (
-    <div className="app">
-      <h1>FluxCode App</h1>
-      <p>Edit this file to get started!</p>
-    </div>
-  );
-}
-
-export default App;`,
-    'utils.js': `// Utility functions
-
-export function formatDate(date) {
-  return new Date(date).toLocaleDateString();
-}
-
-export function calculateSum(numbers) {
-  return numbers.reduce((sum, num) => sum + num, 0);
-}
-
-export function generateId() {
-  return Math.random().toString(36).substr(2, 9);
-}`
+  const [files, setFiles] = useState(fileSystem || {
+    'main.js': `// Welcome to FluxCode Editor function greetDeveloper() {console.log("Hello,Developer! Ready to code with the perfect vibe?");const vibes=['focused','creative','relaxed'];const currentVibe=vibes[Math.floor(Math.random() * vibes.length)];return \`Current vibe: \${currentVibe}\`;} greetDeveloper();`,
+    'app.js': `import React from 'react';function App() {return ( <div className="app"> <h1>FluxCode App</h1> <p>Edit this file to get started!</p> </div> );}export default App;`,
+    'utils.js': `// Utility functionsexport function formatDate(date) {return new Date(date).toLocaleDateString();}export function calculateSum(numbers) {return numbers.reduce((sum,num)=> sum + num,0);}export function generateId() {return Math.random().toString(36).substr(2,9);}`
   });
   const [currentFile, setCurrentFile] = useState('main.js');
   
+  // File reference and suggestion system
+  const [showFileSuggestions, setShowFileSuggestions] = useState(false);
+  const [fileSuggestions, setFileSuggestions] = useState([]);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [atSignIndex, setAtSignIndex] = useState(-1);
+  
+  // Drag and drop files
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [droppedFiles, setDroppedFiles] = useState([]);
+  
   const terminalRef = useRef(null);
+  const inputRef = useRef(null);
   const [showScrollbar, setShowScrollbar] = useState(false);
   const { selectedModel, generateResponse } = useLLMStore();
-  
+
   // Add custom output when it changes
   useEffect(() => {
     if (customOutput && customOutput.length > 0) {
       setCommands(prev => [...prev, ...customOutput]);
     }
   }, [customOutput]);
+
+  // Update files when fileSystem changes
+  useEffect(() => {
+    if (fileSystem && Object.keys(fileSystem).length > 0) {
+      setFiles(fileSystem);
+    }
+  }, [fileSystem]);
 
   // Scrollbar visibility effect
   useEffect(() => {
@@ -95,6 +84,33 @@ export function generateId() {
     }
   }, [commands]);
 
+  // File suggestion system
+  useEffect(() => {
+    if (currentCommand.includes('@') && inputRef.current) {
+      const atIndex = currentCommand.lastIndexOf('@');
+      if (atIndex !== -1) {
+        const textAfterAt = currentCommand.slice(atIndex + 1);
+        // Only show suggestions if we're typing right after the @ symbol
+        if (cursorPosition > atIndex && !textAfterAt.includes(' ')) {
+          setAtSignIndex(atIndex);
+          
+          // Filter file suggestions based on text after @
+          const suggestions = Object.keys(files).filter(file => 
+            file.toLowerCase().includes(textAfterAt.toLowerCase())
+          );
+          
+          setFileSuggestions(suggestions);
+          setShowFileSuggestions(suggestions.length > 0);
+          return;
+        }
+      }
+    }
+    
+    // Hide suggestions if conditions aren't met
+    setShowFileSuggestions(false);
+    setFileSuggestions([]);
+  }, [currentCommand, cursorPosition, files]);
+
   // Handle command execution
   const executeCommand = async (cmd) => {
     // Skip empty commands
@@ -114,6 +130,22 @@ export function generateId() {
     if (customHandlerOutput) {
       setCommands(prev => [...prev, ...customHandlerOutput]);
       return;
+    }
+    
+    // Process file references in command (replace @filename with file content)
+    let processedCommand = cmd;
+    let fileRefs = [];
+    const atMatches = [...cmd.matchAll(/@(\w+\.\w+)/g)];
+    
+    if (atMatches.length > 0) {
+      atMatches.forEach(match => {
+        const filename = match[1];
+        if (files[filename]) {
+          fileRefs.push({ filename, content: files[filename] });
+          // For display purposes, we keep the @filename in the command
+          // But we'll use the file references when processing
+        }
+      });
     }
 
     // Parse the command and arguments
@@ -139,7 +171,11 @@ export function generateId() {
   echo <message>       Display a message
   vibe                 Show current coding vibe
   npm <command>        Simulate npm commands
-  git <command>        Simulate git commands` 
+  git <command>        Simulate git commands
+  
+Special Features:
+  @filename            Reference a file in your command (e.g., "analyze @main.js")
+  Drag & Drop          Drag files from the file explorer to analyze them`
         });
         break;
         
@@ -196,56 +232,82 @@ export function generateId() {
       case 'improve':
       case 'explain':
       case 'fix':
-        if (args.length < 2) {
-          newCommands.push({ type: 'error', content: `Usage: ${command} <filename>` });
-        } else {
-          const filename = args[1];
-          if (files[filename]) {
-            setIsProcessing(true);
-            newCommands.push({ 
-              type: 'output', 
-              content: `Analyzing ${filename} using ${selectedModel}...`
-            });
-            setCommands([...newCommands]);
-            
-            try {
-              // Construct prompt based on command type
-              let prompt = '';
-              switch(command) {
-                case 'analyze':
-                  prompt = `Analyze this code and provide insights:\n\n\`\`\`${filename}\n${files[filename]}\n\`\`\``;
-                  break;
-                case 'improve':
-                  prompt = `Suggest improvements for this code:\n\n\`\`\`${filename}\n${files[filename]}\n\`\`\`\n\nProvide specific suggestions with code examples.`;
-                  break;
-                case 'explain':
-                  prompt = `Explain this code in detail:\n\n\`\`\`${filename}\n${files[filename]}\n\`\`\`\n\nBreak down what each part does.`;
-                  break;
-                case 'fix':
-                  prompt = `Identify and fix issues in this code:\n\n\`\`\`${filename}\n${files[filename]}\n\`\`\`\n\nProvide corrected code.`;
-                  break;
-              }
-              
-              // Send to LLM
-              const response = await generateResponse(prompt);
-              
-              // Add response to commands
-              setCommands(prev => [
-                ...prev, 
-                { type: 'ai-response', content: response }
-              ]);
-              
-            } catch (error) {
-              setCommands(prev => [
-                ...prev, 
-                { type: 'error', content: `AI processing error: ${error.message}` }
-              ]);
-            } finally {
-              setIsProcessing(false);
+        // Check for file references or dropped files
+        let filename, fileContent;
+        
+        if (args.length < 2 && fileRefs.length === 0 && droppedFiles.length === 0) {
+          newCommands.push({ type: 'error', content: `Usage: ${command} <filename> or ${command} @filename` });
+          break;
+        }
+        
+        // Priority: 1. Explicit filename arg, 2. File references, 3. Dropped files
+        if (args.length >= 2) {
+          filename = args[1].replace('@', ''); // Remove @ if present
+          fileContent = files[filename];
+        } else if (fileRefs.length > 0) {
+          filename = fileRefs[0].filename;
+          fileContent = fileRefs[0].content;
+        } else if (droppedFiles.length > 0) {
+          filename = droppedFiles[0].name;
+          fileContent = droppedFiles[0].content;
+        }
+        
+        if (fileContent) {
+          setIsProcessing(true);
+          newCommands.push({ 
+            type: 'output', 
+            content: `Analyzing ${filename} using ${selectedModel}...`
+          });
+          setCommands([...newCommands]);
+          
+          try {
+            // Construct prompt based on command type
+            let prompt = '';
+            switch(command) {
+              case 'analyze':
+                prompt = `Analyze this code and provide insights:\n\n\`\`\`${filename}\n${fileContent}\n\`\`\``;
+                break;
+              case 'improve':
+                prompt = `Suggest improvements for this code:\n\n\`\`\`${filename}\n${fileContent}\n\`\`\`\n\nProvide specific suggestions with code examples.`;
+                break;
+              case 'explain':
+                prompt = `Explain this code in detail:\n\n\`\`\`${filename}\n${fileContent}\n\`\`\`\n\nBreak down what each part does.`;
+                break;
+              case 'fix':
+                prompt = `Identify and fix issues in this code:\n\n\`\`\`${filename}\n${fileContent}\n\`\`\`\n\nProvide corrected code.`;
+                break;
             }
-          } else {
-            newCommands.push({ type: 'error', content: `File not found: ${filename}` });
+            
+            // Process multiple file references if available
+            if (fileRefs.length > 1) {
+              prompt += '\n\nAdditional context from referenced files:\n';
+              for (let i = 1; i < fileRefs.length; i++) {
+                prompt += `\n\`\`\`${fileRefs[i].filename}\n${fileRefs[i].content}\n\`\`\``;
+              }
+            }
+            
+            // Send to LLM
+            const response = await generateResponse(prompt);
+            
+            // Add response to commands
+            setCommands(prev => [
+              ...prev, 
+              { type: 'ai-response', content: response }
+            ]);
+            
+            // Clear dropped files after processing
+            setDroppedFiles([]);
+            
+          } catch (error) {
+            setCommands(prev => [
+              ...prev, 
+              { type: 'error', content: `AI processing error: ${error.message}` }
+            ]);
+          } finally {
+            setIsProcessing(false);
           }
+        } else {
+          newCommands.push({ type: 'error', content: `File not found: ${filename}` });
         }
         break;
         
@@ -305,7 +367,7 @@ export function generateId() {
             }
           }, 500);
         } else {
-          const filename = args[1];
+          const filename = args[1].replace('@', ''); // Remove @ if present
           if (files[filename]) {
             if (filename.endsWith('.js')) {
               newCommands.push({ type: 'output', content: `Running ${filename}...` });
@@ -382,6 +444,9 @@ export function generateId() {
           newCommands.push({ type: 'output', content: `Executing npm command: ${cmd.substring(4)}\nPackage operation completed successfully.` });
         } else if (cmd.startsWith('git ')) {
           newCommands.push({ type: 'output', content: `Executing git command: ${cmd.substring(4)}\nGit operation completed successfully.` });
+        } else if (cmd.startsWith('analyze @') || cmd.startsWith('explain @') || cmd.startsWith('improve @') || cmd.startsWith('fix @')) {
+          // This is a fallback case for file references that weren't caught above
+          // It should be handled by the previous switch cases
         } else {
           newCommands.push({ type: 'error', content: `Command not found: ${command}` });
         }
@@ -392,49 +457,153 @@ export function generateId() {
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      executeCommand(currentCommand);
-      setCurrentCommand('');
+      if (showFileSuggestions && fileSuggestions.length > 0) {
+        // If suggestions are shown, select the first one
+        handleFileSelect(fileSuggestions[0]);
+      } else {
+        executeCommand(currentCommand);
+        setCurrentCommand('');
+      }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      // Navigate command history
-      if (history.length > 0) {
-        const newIndex = Math.min(historyIndex + 1, history.length - 1);
-        setHistoryIndex(newIndex);
-        setCurrentCommand(history[newIndex]);
+      if (showFileSuggestions) {
+        // Navigate file suggestions
+        // Implementation would go here
+      } else {
+        // Navigate command history
+        if (history.length > 0) {
+          const newIndex = Math.min(historyIndex + 1, history.length - 1);
+          setHistoryIndex(newIndex);
+          setCurrentCommand(history[newIndex]);
+        }
       }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      // Navigate command history
-      if (historyIndex > 0) {
-        const newIndex = historyIndex - 1;
-        setHistoryIndex(newIndex);
-        setCurrentCommand(history[newIndex]);
-      } else if (historyIndex === 0) {
-        setHistoryIndex(-1);
-        setCurrentCommand('');
+      if (showFileSuggestions) {
+        // Navigate file suggestions
+        // Implementation would go here
+      } else {
+        // Navigate command history
+        if (historyIndex > 0) {
+          const newIndex = historyIndex - 1;
+          setHistoryIndex(newIndex);
+          setCurrentCommand(history[newIndex]);
+        } else if (historyIndex === 0) {
+          setHistoryIndex(-1);
+          setCurrentCommand('');
+        }
       }
     } else if (e.key === 'Tab') {
       e.preventDefault();
-      // Simple tab completion for file names
-      const args = currentCommand.trim().split(' ');
-      if (args.length > 0 && ['cat', 'edit', 'analyze', 'improve', 'explain', 'fix', 'run'].includes(args[0].toLowerCase())) {
-        // If we have a partial filename
-        if (args.length > 1) {
-          const partialName = args[1];
-          // Find matching files
-          const matches = Object.keys(files).filter(f => f.startsWith(partialName));
-          if (matches.length === 1) {
-            // Complete the filename
-            args[1] = matches[0];
-            setCurrentCommand(args.join(' '));
-          } else if (matches.length > 1) {
-            // Show possible completions
-            setCommands(prev => [...prev, 
-              { type: 'input', content: `$ ${currentCommand}` },
-              { type: 'output', content: `Possible completions: ${matches.join('  ')}` }
-            ]);
+      if (showFileSuggestions && fileSuggestions.length > 0) {
+        // Complete with the first suggestion
+        handleFileSelect(fileSuggestions[0]);
+      } else {
+        // Simple tab completion for file names
+        const args = currentCommand.trim().split(' ');
+        if (args.length > 0 && ['cat', 'edit', 'analyze', 'improve', 'explain', 'fix', 'run'].includes(args[0].toLowerCase())) {
+          // If we have a partial filename
+          if (args.length > 1) {
+            const partialName = args[1];
+            // Find matching files
+            const matches = Object.keys(files).filter(f => f.startsWith(partialName));
+            if (matches.length === 1) {
+              // Complete the filename
+              args[1] = matches[0];
+              setCurrentCommand(args.join(' '));
+            } else if (matches.length > 1) {
+              // Show possible completions
+              setCommands(prev => [...prev, 
+                { type: 'input', content: `$ ${currentCommand}` },
+                { type: 'output', content: `Possible completions: ${matches.join('  ')}` }
+              ]);
+            }
           }
         }
+      }
+    } else if (e.key === 'Escape') {
+      // Hide suggestions on escape
+      setShowFileSuggestions(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setCurrentCommand(e.target.value);
+    if (inputRef.current) {
+      setCursorPosition(inputRef.current.selectionStart);
+    }
+  };
+
+  // Handle file selection from suggestions
+  const handleFileSelect = (filename) => {
+    if (!filename) return;
+    
+    // Replace the text after @ with the selected filename
+    const beforeAt = currentCommand.substring(0, atSignIndex + 1);
+    const afterAt = currentCommand.substring(atSignIndex + 1);
+    const afterAtNextSpace = afterAt.indexOf(' ') > -1 ? afterAt.indexOf(' ') : afterAt.length;
+    
+    const newCommand = beforeAt + filename + afterAt.substring(afterAtNextSpace);
+    setCurrentCommand(newCommand);
+    setShowFileSuggestions(false);
+    
+    // Focus the input and place cursor after the inserted filename
+    if (inputRef.current) {
+      inputRef.current.focus();
+      const newCursorPos = beforeAt.length + filename.length;
+      setTimeout(() => {
+        inputRef.current.selectionStart = newCursorPos;
+        inputRef.current.selectionEnd = newCursorPos;
+        setCursorPosition(newCursorPos);
+      }, 0);
+    }
+  };
+
+  // Handle drag and drop for files
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    if (!isDraggingOver) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    
+    // Process the dropped file data
+    // In a real implementation, we would read the file data
+    // Here we'll simulate it with a mock file
+    
+    // Check if this is coming from our file explorer
+    const fileData = e.dataTransfer.getData('application/json');
+    if (fileData) {
+      try {
+        const parsedData = JSON.parse(fileData);
+        if (parsedData.filename && parsedData.content) {
+          setDroppedFiles([{
+            name: parsedData.filename,
+            content: parsedData.content
+          }]);
+          
+          // Auto-suggest a command with the dropped file
+          setCurrentCommand(`analyze ${parsedData.filename}`);
+          
+          // Show notification about the dropped file
+          setCommands(prev => [...prev, 
+            { 
+              type: 'info', 
+              content: `📎 File "${parsedData.filename}" dropped. Type a command to analyze it or press Enter to run "analyze ${parsedData.filename}"` 
+            }
+          ]);
+        }
+      } catch (error) {
+        console.error('Error parsing dropped file data:', error);
       }
     }
   };
@@ -473,10 +642,14 @@ export function generateId() {
   };
 
   return (
-    <motion.div className="h-full bg-dark-bg border-t border-dark-border flex flex-col"
+    <motion.div 
+      className={`h-full bg-dark-bg border-t border-dark-border flex flex-col ${isDraggingOver ? 'border-2 border-dashed border-vibe-purple bg-vibe-purple/10' : ''}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       <div className="flex items-center justify-between bg-dark-surface px-4 py-2 border-b border-dark-border">
         <div className="flex items-center space-x-2">
@@ -486,6 +659,12 @@ export function generateId() {
             <div className="flex items-center space-x-2 text-vibe-purple">
               <SafeIcon icon={FiLoader} className="animate-spin" />
               <span className="text-xs">Processing...</span>
+            </div>
+          )}
+          {droppedFiles.length > 0 && (
+            <div className="flex items-center space-x-2 text-vibe-blue">
+              <SafeIcon icon={FiPaperclip} className="text-xs" />
+              <span className="text-xs">{droppedFiles[0].name}</span>
             </div>
           )}
         </div>
@@ -514,15 +693,23 @@ export function generateId() {
                 ? 'text-vibe-green' 
                 : cmd.type === 'error' 
                   ? 'text-red-400' 
-                  : cmd.type === 'ai-response'
-                    ? 'text-vibe-purple border-l-2 border-vibe-purple pl-2 my-3'
-                    : 'text-gray-300'
+                  : cmd.type === 'ai-response' 
+                    ? 'text-vibe-purple border-l-2 border-vibe-purple pl-2 my-3' 
+                    : cmd.type === 'info' 
+                      ? 'text-vibe-blue border-l-2 border-vibe-blue pl-2 my-1' 
+                      : 'text-gray-300'
             }`}
           >
             {cmd.type === 'ai-response' && (
               <div className="flex items-center mb-1 text-xs text-gray-400">
                 <SafeIcon icon={FiBrain} className="mr-1 text-vibe-purple" />
                 <span>AI Assistant</span>
+              </div>
+            )}
+            {cmd.type === 'info' && (
+              <div className="flex items-center mb-1 text-xs text-vibe-blue">
+                <SafeIcon icon={FiInfo} className="mr-1" />
+                <span>Info</span>
               </div>
             )}
             {cmd.isCode ? formatOutput(cmd.content, true) : cmd.content}
@@ -536,17 +723,72 @@ export function generateId() {
           </div>
         )}
         
+        {isDraggingOver && (
+          <div className="absolute inset-0 flex items-center justify-center bg-dark-bg/80 pointer-events-none">
+            <div className="p-4 bg-vibe-purple/20 border-2 border-dashed border-vibe-purple rounded-lg flex flex-col items-center">
+              <SafeIcon icon={FiUpload} className="text-4xl text-vibe-purple mb-2" />
+              <span className="text-vibe-purple font-medium">Drop file to analyze</span>
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center text-vibe-green">
           <span>$ </span>
-          <input
-            type="text"
-            value={currentCommand}
-            onChange={(e) => setCurrentCommand(e.target.value)}
-            onKeyDown={handleKeyPress}
-            className="bg-transparent outline-none flex-1 ml-1 text-white"
-            autoFocus
-          />
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={currentCommand}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyPress}
+              onClick={() => inputRef.current && setCursorPosition(inputRef.current.selectionStart)}
+              className="bg-transparent outline-none flex-1 ml-1 text-white w-full"
+              autoFocus
+            />
+            
+            {/* File suggestions dropdown */}
+            <AnimatePresence>
+              {showFileSuggestions && (
+                <motion.div 
+                  className="absolute left-0 mt-1 bg-dark-bg border border-dark-border rounded-md shadow-lg z-50 w-64"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="py-1 max-h-40 overflow-y-auto">
+                    {fileSuggestions.map((file, idx) => (
+                      <button
+                        key={file}
+                        onClick={() => handleFileSelect(file)}
+                        className={`w-full text-left px-3 py-2 flex items-center space-x-2 hover:bg-dark-border`}
+                      >
+                        <SafeIcon icon={FiFile} className="text-vibe-blue" />
+                        <span>{file}</span>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
+        
+        {/* Dropped files indicator */}
+        {droppedFiles.length > 0 && (
+          <div className="mt-2 p-2 bg-dark-surface rounded-md border border-dark-border flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <SafeIcon icon={FiFile} className="text-vibe-blue" />
+              <span className="text-sm">{droppedFiles[0].name}</span>
+            </div>
+            <button 
+              onClick={() => setDroppedFiles([])}
+              className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+            >
+              <SafeIcon icon={FiX} className="text-sm" />
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

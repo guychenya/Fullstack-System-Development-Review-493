@@ -6,18 +6,13 @@ import { useLLMStore } from '../store/llmStore';
 import toast from 'react-hot-toast';
 
 const { 
-  FiBrain, FiSend, FiX, FiLoader, FiMaximize2, FiMinimize2, 
-  FiCode, FiCopy, FiMessageCircle, FiSettings, FiTrash2, 
-  FiRefreshCw, FiChevronDown, FiCheck, FiAlertCircle, 
-  FiZap, FiCpu, FiGlobe, FiFlame, FiClipboard 
+  FiBrain, FiSend, FiX, FiLoader, FiMaximize2, FiMinimize2, FiCode, 
+  FiCopy, FiMessageCircle, FiSettings, FiTrash2, FiRefreshCw, 
+  FiChevronDown, FiCheck, FiAlertCircle, FiZap, FiCpu, FiGlobe, 
+  FiFlame, FiClipboard, FiFile, FiPaperclip, FiAtSign
 } = FiIcons;
 
-const EnhancedAIAssistant = ({ 
-  mode = 'overlay', 
-  onClose, 
-  onModeChange,
-  className = ''
-}) => {
+const EnhancedAIAssistant = ({ mode = 'overlay', onClose, onModeChange, className = '' }) => {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
@@ -30,21 +25,69 @@ const EnhancedAIAssistant = ({
     }
   ]);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
-
-  const {
-    selectedModel,
-    setSelectedModel,
-    ollamaStatus,
-    apiKeys,
-    generateResponse,
-    checkOllamaConnection
+  
+  // File reference features
+  const [showFileSuggestions, setShowFileSuggestions] = useState(false);
+  const [fileSuggestions, setFileSuggestions] = useState([]);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [atSignIndex, setAtSignIndex] = useState(-1);
+  const [droppedFiles, setDroppedFiles] = useState([]);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  
+  const { 
+    selectedModel, 
+    setSelectedModel, 
+    ollamaStatus, 
+    apiKeys, 
+    generateResponse, 
+    checkOllamaConnection 
   } = useLLMStore();
-
+  
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const [showScrollbar, setShowScrollbar] = useState(false);
 
+  // Simulated file system
+  const [files, setFiles] = useState({
+    'main.js': `// Welcome to FluxCode Editor
+function greetDeveloper() {
+  console.log("Hello, Developer! Ready to code with the perfect vibe?");
+  
+  const vibes = ['focused', 'creative', 'relaxed'];
+  const currentVibe = vibes[Math.floor(Math.random() * vibes.length)];
+  
+  return \`Current vibe: \${currentVibe}\`;
+}
+
+greetDeveloper();`,
+    'app.jsx': `import React from 'react';
+
+function App() {
+  return (
+    <div className="app">
+      <h1>FluxCode App</h1>
+      <p>Edit this file to get started!</p>
+    </div>
+  );
+}
+
+export default App;`,
+    'utils.js': `// Utility functions
+
+export function formatDate(date) {
+  return new Date(date).toLocaleDateString();
+}
+
+export function calculateSum(numbers) {
+  return numbers.reduce((sum, num) => sum + num, 0);
+}
+
+export function generateId() {
+  return Math.random().toString(36).substr(2, 9);
+}`
+  });
+  
   // Enhanced LLM providers with availability status
   const llmProviders = [
     {
@@ -144,6 +187,33 @@ const EnhancedAIAssistant = ({
       }
     };
   }, []);
+  
+  // File suggestion system
+  useEffect(() => {
+    if (prompt.includes('@') && inputRef.current) {
+      const atIndex = prompt.lastIndexOf('@');
+      if (atIndex !== -1) {
+        const textAfterAt = prompt.slice(atIndex + 1);
+        // Only show suggestions if we're typing right after the @ symbol
+        if (cursorPosition > atIndex && !textAfterAt.includes(' ')) {
+          setAtSignIndex(atIndex);
+          
+          // Filter file suggestions based on text after @
+          const suggestions = Object.keys(files).filter(file => 
+            file.toLowerCase().includes(textAfterAt.toLowerCase())
+          );
+          
+          setFileSuggestions(suggestions);
+          setShowFileSuggestions(suggestions.length > 0);
+          return;
+        }
+      }
+    }
+    
+    // Hide suggestions if conditions aren't met
+    setShowFileSuggestions(false);
+    setFileSuggestions([]);
+  }, [prompt, cursorPosition, files]);
 
   const getProviderFromModel = (model) => {
     const provider = llmProviders.find(p => p.models.includes(model));
@@ -161,10 +231,10 @@ const EnhancedAIAssistant = ({
       toast.error(`${newModel} is not available. Please check your API keys or Ollama connection.`);
       return;
     }
-
+    
     setSelectedModel(newModel);
     setShowModelSelector(false);
-
+    
     // Add system message about model change
     const systemMessage = {
       role: 'system',
@@ -174,27 +244,119 @@ const EnhancedAIAssistant = ({
     setConversation(prev => [...prev, systemMessage]);
     toast.success(`Switched to ${newModel}`);
   };
+  
+  // Handle file selection from suggestions
+  const handleFileSelect = (filename) => {
+    if (!filename) return;
+    
+    // Replace the text after @ with the selected filename
+    const beforeAt = prompt.substring(0, atSignIndex + 1);
+    const afterAt = prompt.substring(atSignIndex + 1);
+    const afterAtNextSpace = afterAt.indexOf(' ') > -1 ? afterAt.indexOf(' ') : afterAt.length;
+    
+    const newPrompt = beforeAt + filename + afterAt.substring(afterAtNextSpace);
+    setPrompt(newPrompt);
+    setShowFileSuggestions(false);
+    
+    // Focus the input and place cursor after the inserted filename
+    if (inputRef.current) {
+      inputRef.current.focus();
+      const newCursorPos = beforeAt.length + filename.length;
+      setTimeout(() => {
+        inputRef.current.selectionStart = newCursorPos;
+        inputRef.current.selectionEnd = newCursorPos;
+        setCursorPosition(newCursorPos);
+      }, 0);
+    }
+  };
+  
+  // Handle drag and drop for files
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    if (!isDraggingOver) {
+      setIsDraggingOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    
+    // Process the dropped file data
+    const fileData = e.dataTransfer.getData('application/json');
+    if (fileData) {
+      try {
+        const parsedData = JSON.parse(fileData);
+        if (parsedData.filename && parsedData.content) {
+          setDroppedFiles([{
+            name: parsedData.filename,
+            content: parsedData.content
+          }]);
+          
+          // Add file reference to current prompt
+          if (prompt.trim() === '') {
+            setPrompt(`Can you analyze this file: @${parsedData.filename}`);
+          } else {
+            setPrompt(`${prompt.trim()} with reference to @${parsedData.filename}`);
+          }
+          
+          // Add file to our files state so it can be referenced
+          setFiles(prev => ({
+            ...prev,
+            [parsedData.filename]: parsedData.content
+          }));
+          
+          toast.success(`File "${parsedData.filename}" added to conversation`);
+        }
+      } catch (error) {
+        console.error('Error parsing dropped file data:', error);
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
     if (!prompt.trim() || isLoading) return;
-
+    
     // Check if current model is available
     if (!isModelAvailable(selectedModel)) {
       toast.error(`${selectedModel} is not available. Please select a different model or check your API keys.`);
       return;
+    }
+    
+    // Process file references in prompt (replace @filename with file content)
+    let processedPrompt = prompt;
+    let fileRefs = [];
+    const atMatches = [...prompt.matchAll(/@(\w+\.\w+)/g)];
+    
+    if (atMatches.length > 0) {
+      atMatches.forEach(match => {
+        const filename = match[1];
+        if (files[filename]) {
+          fileRefs.push({ filename, content: files[filename] });
+          // For display purposes, we keep the @filename in the prompt
+          // But we'll use the file references when processing
+        }
+      });
     }
 
     const userMessage = {
       role: 'user',
       content: prompt,
       timestamp: Date.now(),
-      id: Date.now() // Add unique ID for copying
+      id: Date.now(), // Add unique ID for copying
+      fileRefs: fileRefs.length > 0 ? fileRefs : undefined
     };
-
+    
     setConversation(prev => [...prev, userMessage]);
     setPrompt('');
     setIsLoading(true);
+    setDroppedFiles([]);
 
     try {
       // Auto-truncate if conversation is getting too long
@@ -205,13 +367,31 @@ const EnhancedAIAssistant = ({
           ...conversation.slice(-chatSettings.maxMessages + 2) // Keep recent messages
         ];
       }
+      
+      // Build enhanced prompt with file contents
+      let enhancedPrompt = prompt;
+      
+      if (fileRefs.length > 0) {
+        enhancedPrompt += "\n\nHere are the referenced files:\n\n";
+        fileRefs.forEach(fileRef => {
+          enhancedPrompt += `\`\`\`${fileRef.filename}\n${fileRef.content}\n\`\`\`\n\n`;
+        });
+      }
+      
+      // Include dropped files if any
+      if (droppedFiles.length > 0) {
+        enhancedPrompt += "\n\nHere are the dropped files:\n\n";
+        droppedFiles.forEach(file => {
+          enhancedPrompt += `\`\`\`${file.name}\n${file.content}\n\`\`\`\n\n`;
+        });
+      }
 
-      const response = await generateResponse(prompt, {
+      const response = await generateResponse(enhancedPrompt, {
         conversation: contextConversation,
         maxTokens: 1000,
         temperature: 0.7
       });
-
+      
       const assistantMessage = {
         role: 'assistant',
         content: response,
@@ -219,15 +399,16 @@ const EnhancedAIAssistant = ({
         model: selectedModel,
         id: Date.now() + 1 // Add unique ID for copying
       };
-
+      
       setConversation(prev => [...prev, assistantMessage]);
-
+      
       // Save to localStorage if enabled
       if (chatSettings.saveHistory) {
         localStorage.setItem('ai-assistant-history', JSON.stringify([...conversation, userMessage, assistantMessage]));
       }
     } catch (error) {
       console.error('Error generating response:', error);
+      
       const errorMessage = {
         role: 'assistant',
         content: `Sorry, I encountered an error: ${error.message || 'Failed to generate response'}. Please try again or switch to a different model.`,
@@ -235,6 +416,7 @@ const EnhancedAIAssistant = ({
         isError: true,
         id: Date.now() + 2 // Add unique ID for copying
       };
+      
       setConversation(prev => [...prev, errorMessage]);
       toast.error('Failed to generate response');
     } finally {
@@ -251,9 +433,11 @@ const EnhancedAIAssistant = ({
         id: Date.now()
       }
     ]);
+    
     if (chatSettings.saveHistory) {
       localStorage.removeItem('ai-assistant-history');
     }
+    
     toast.success('Conversation cleared');
   };
 
@@ -273,7 +457,7 @@ const EnhancedAIAssistant = ({
       } else if (message.role === 'system') {
         textToCopy = `System: ${message.content}`;
       }
-
+      
       await navigator.clipboard.writeText(textToCopy);
       
       // Show visual feedback
@@ -296,15 +480,13 @@ const EnhancedAIAssistant = ({
           const timestamp = new Date(msg.timestamp).toLocaleString();
           const role = msg.role === 'user' ? 'Question' : 'Answer';
           let content = `[${timestamp}] ${role}: ${msg.content}`;
-          
           if (msg.model && msg.role === 'assistant') {
             content += ` (${msg.model})`;
           }
-          
           return content;
         })
         .join('\n\n');
-
+        
       await navigator.clipboard.writeText(conversationText);
       toast.success('Entire conversation copied to clipboard!');
     } catch (error) {
@@ -318,11 +500,30 @@ const EnhancedAIAssistant = ({
       .then(() => toast.success('Copied to clipboard'))
       .catch(() => toast.error('Failed to copy'));
   };
+  
+  const handleKeyPress = (e) => {
+    if (e.key === 'Tab' && showFileSuggestions && fileSuggestions.length > 0) {
+      e.preventDefault();
+      // Complete with the first suggestion
+      handleFileSelect(fileSuggestions[0]);
+    } else if (e.key === 'Escape') {
+      // Hide suggestions on escape
+      setShowFileSuggestions(false);
+    }
+  };
+  
+  const handleInputChange = (e) => {
+    setPrompt(e.target.value);
+    if (inputRef.current) {
+      setCursorPosition(inputRef.current.selectionStart);
+    }
+  };
 
   const formatMessageContent = (content) => {
     if (!content) return '';
     
     const parts = content.split(/```([^`]+)```/);
+    
     if (parts.length === 1) {
       return content.split('\n').map((line, i) => (
         <React.Fragment key={i}>
@@ -331,13 +532,13 @@ const EnhancedAIAssistant = ({
         </React.Fragment>
       ));
     }
-
+    
     return parts.map((part, index) => {
       if (index % 2 === 1) {
         const firstLineBreak = part.indexOf('\n');
         const language = firstLineBreak > 0 ? part.substring(0, firstLineBreak).trim() : '';
         const code = firstLineBreak > 0 ? part.substring(firstLineBreak + 1) : part;
-
+        
         return (
           <div key={index} className="relative mt-2 mb-2 rounded-md overflow-hidden">
             {language && (
@@ -367,6 +568,7 @@ const EnhancedAIAssistant = ({
           </div>
         );
       }
+      
       return part.split('\n').map((line, i) => (
         <React.Fragment key={`${index}-${i}`}>
           {line}
@@ -392,7 +594,6 @@ const EnhancedAIAssistant = ({
   // Get container classes based on mode
   const getContainerClasses = () => {
     const baseClasses = 'bg-dark-surface border border-dark-border overflow-hidden';
-    
     switch (mode) {
       case 'fullscreen':
         return `${baseClasses} w-full h-full ${className}`;
@@ -405,7 +606,12 @@ const EnhancedAIAssistant = ({
   };
 
   return (
-    <div className={getContainerClasses()}>
+    <div 
+      className={getContainerClasses()}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Enhanced Chat header */}
       <div className="flex items-center justify-between bg-dark-bg p-4 border-b border-dark-border">
         <div className="flex items-center space-x-3">
@@ -433,7 +639,6 @@ const EnhancedAIAssistant = ({
             </div>
           </div>
         </div>
-
         <div className="flex items-center space-x-2">
           {/* Copy entire conversation button */}
           <button
@@ -443,7 +648,7 @@ const EnhancedAIAssistant = ({
           >
             <SafeIcon icon={FiClipboard} className="text-sm" />
           </button>
-
+          
           {/* Model Selector */}
           <div className="relative">
             <button
@@ -454,7 +659,7 @@ const EnhancedAIAssistant = ({
               <SafeIcon icon={currentModelInfo.icon} className={currentModelInfo.color} />
               <SafeIcon icon={FiChevronDown} className="text-xs" />
             </button>
-
+            
             <AnimatePresence>
               {showModelSelector && (
                 <motion.div
@@ -496,7 +701,7 @@ const EnhancedAIAssistant = ({
               )}
             </AnimatePresence>
           </div>
-
+          
           {/* Mode change buttons (only in overlay mode) */}
           {mode === 'overlay' && onModeChange && (
             <>
@@ -516,21 +721,20 @@ const EnhancedAIAssistant = ({
               </button>
             </>
           )}
-
+          
           {/* Close button */}
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-red-400 transition-colors"
-          >
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-red-400 transition-colors">
             <SafeIcon icon={FiX} className="text-sm" />
           </button>
         </div>
       </div>
-
+      
       {/* Chat messages with improved scrolling and copy functionality */}
       <div 
-        ref={messagesContainerRef}
-        className={`flex-1 overflow-y-auto p-4 chat-messages-scroll smooth-scroll ${showScrollbar ? 'scrollbar-fade-in' : 'hover-show-scrollbar'}`}
+        ref={messagesContainerRef} 
+        className={`flex-1 overflow-y-auto p-4 chat-messages-scroll smooth-scroll ${
+          showScrollbar ? 'scrollbar-fade-in' : 'hover-show-scrollbar'
+        } ${isDraggingOver ? 'border-2 border-dashed border-vibe-purple bg-vibe-purple/10' : ''}`}
       >
         {conversation.map((message, index) => (
           <motion.div
@@ -562,13 +766,13 @@ const EnhancedAIAssistant = ({
                   }`}
                   title={`Copy ${message.role === 'user' ? 'question' : 'response'}`}
                 >
-                  <SafeIcon 
-                    icon={copiedMessageId === (message.id || message.timestamp) ? FiCheck : FiCopy} 
-                    className="text-xs" 
+                  <SafeIcon
+                    icon={copiedMessageId === (message.id || message.timestamp) ? FiCheck : FiCopy}
+                    className="text-xs"
                   />
                 </button>
               )}
-
+              
               <div className="flex items-center space-x-2 mb-1">
                 <SafeIcon
                   icon={
@@ -595,20 +799,43 @@ const EnhancedAIAssistant = ({
                   <span className="text-xs opacity-60">({message.model})</span>
                 )}
               </div>
+              
               {message.role !== 'system' && (
                 <div className="text-sm pr-8">
                   {formatMessageContent(message.content)}
                 </div>
               )}
+              
               {message.role === 'system' && (
                 <div className="text-xs italic">
                   {message.content}
                 </div>
               )}
+              
+              {/* Show file references if any */}
+              {message.fileRefs && message.fileRefs.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-white/20">
+                  <div className="flex items-center text-xs">
+                    <SafeIcon icon={FiPaperclip} className="mr-1" />
+                    <span>File references:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {message.fileRefs.map((fileRef, idx) => (
+                      <div 
+                        key={idx}
+                        className="px-2 py-1 bg-white/10 rounded-md text-xs flex items-center"
+                      >
+                        <SafeIcon icon={FiFile} className="mr-1" />
+                        <span>{fileRef.filename}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         ))}
-
+        
         {isLoading && (
           <motion.div
             className="flex justify-start mb-4"
@@ -624,25 +851,61 @@ const EnhancedAIAssistant = ({
           </motion.div>
         )}
         
+        {isDraggingOver && (
+          <div className="absolute inset-0 flex items-center justify-center bg-dark-bg/80 pointer-events-none">
+            <div className="p-4 bg-vibe-purple/20 border-2 border-dashed border-vibe-purple rounded-lg flex flex-col items-center">
+              <SafeIcon icon={FiFile} className="text-4xl text-vibe-purple mb-2" />
+              <span className="text-vibe-purple font-medium">Drop file to reference in chat</span>
+            </div>
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Enhanced Chat input */}
+      
+      {/* Enhanced Chat input with file reference support */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-dark-border">
         <div className="flex space-x-2">
-          <input
-            ref={inputRef}
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={
-              !isModelAvailable(selectedModel)
-                ? `${selectedModel} not available - check settings`
-                : "Ask me anything..."
-            }
-            className="flex-1 px-4 py-2 bg-dark-bg border border-dark-border rounded-lg focus:ring-2 focus:ring-vibe-purple focus:border-transparent outline-none text-white placeholder-gray-500"
-            disabled={isLoading || !isModelAvailable(selectedModel)}
-          />
+          <div className="relative flex-1">
+            <input
+              ref={inputRef}
+              type="text"
+              value={prompt}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyPress}
+              onClick={() => inputRef.current && setCursorPosition(inputRef.current.selectionStart)}
+              placeholder={!isModelAvailable(selectedModel) ? `${selectedModel} not available - check settings` : "Ask me anything or use @filename to reference code..."}
+              className="w-full px-4 py-2 bg-dark-bg border border-dark-border rounded-lg focus:ring-2 focus:ring-vibe-purple focus:border-transparent outline-none text-white placeholder-gray-500"
+              disabled={isLoading || !isModelAvailable(selectedModel)}
+            />
+            
+            {/* File suggestions dropdown */}
+            <AnimatePresence>
+              {showFileSuggestions && (
+                <motion.div 
+                  className="absolute left-0 mt-1 bg-dark-bg border border-dark-border rounded-md shadow-lg z-50 w-64"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="py-1 max-h-40 overflow-y-auto">
+                    {fileSuggestions.map((file) => (
+                      <button
+                        key={file}
+                        onClick={() => handleFileSelect(file)}
+                        className="w-full text-left px-3 py-2 flex items-center space-x-2 hover:bg-dark-border"
+                      >
+                        <SafeIcon icon={FiFile} className="text-vibe-blue" />
+                        <span>{file}</span>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
           <button
             type="submit"
             disabled={!prompt.trim() || isLoading || !isModelAvailable(selectedModel)}
@@ -651,6 +914,22 @@ const EnhancedAIAssistant = ({
             <SafeIcon icon={isLoading ? FiLoader : FiSend} className={isLoading ? "animate-spin" : ""} />
           </button>
         </div>
+        
+        {/* Dropped files indicator */}
+        {droppedFiles.length > 0 && (
+          <div className="mt-2 p-2 bg-dark-surface rounded-md border border-dark-border flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <SafeIcon icon={FiFile} className="text-vibe-blue" />
+              <span className="text-sm">{droppedFiles[0].name}</span>
+            </div>
+            <button 
+              onClick={() => setDroppedFiles([])}
+              className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+            >
+              <SafeIcon icon={FiX} className="text-sm" />
+            </button>
+          </div>
+        )}
         
         <div className="flex justify-between items-center mt-2 text-xs">
           <div className="flex items-center space-x-3 text-gray-500">

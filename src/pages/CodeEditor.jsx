@@ -8,9 +8,9 @@ import Terminal from '../components/Terminal';
 import toast from 'react-hot-toast';
 
 const { 
-  FiPlay, FiSave, FiSettings, FiMaximize2, FiShare2, 
-  FiDownload, FiCopy, FiClipboard, FiRefreshCw, FiGitBranch,
-  FiTerminal, FiCode, FiLayout, FiCpu
+  FiPlay, FiSave, FiSettings, FiMaximize2, FiShare2, FiDownload, 
+  FiCopy, FiClipboard, FiRefreshCw, FiGitBranch, FiTerminal, 
+  FiCode, FiLayout, FiCpu
 } = FiIcons;
 
 const CodeEditor = () => {
@@ -27,6 +27,7 @@ function greetDeveloper() {
 greetDeveloper();`);
   
   const [activeFile, setActiveFile] = useState('main.js');
+  const [activePath, setActivePath] = useState('main.js');
   const [showTerminal, setShowTerminal] = useState(true);
   const [isRunning, setIsRunning] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -83,19 +84,21 @@ export function generateId() {
 
   // Update code when activeFile changes
   useEffect(() => {
-    if (files[activeFile]) {
+    if (files[activePath]) {
+      setCode(files[activePath]);
+    } else if (files[activeFile]) {
       setCode(files[activeFile]);
     }
-  }, [activeFile, files]);
+  }, [activeFile, activePath, files]);
 
   // Save changes to the file system
   useEffect(() => {
-    if (activeFile && editorSettings.autoSave) {
+    if (activePath && editorSettings.autoSave) {
       const updatedFiles = { ...files };
-      updatedFiles[activeFile] = code;
+      updatedFiles[activePath] = code;
       setFiles(updatedFiles);
     }
-  }, [code, activeFile, editorSettings.autoSave]);
+  }, [code, activePath, editorSettings.autoSave]);
 
   const runCode = () => {
     setIsRunning(true);
@@ -159,7 +162,7 @@ export function generateId() {
   const saveCode = () => {
     // Update the file in our simulated file system
     const updatedFiles = { ...files };
-    updatedFiles[activeFile] = code;
+    updatedFiles[activePath] = code;
     setFiles(updatedFiles);
     
     toast.success(`File ${activeFile} saved successfully!`);
@@ -193,6 +196,20 @@ export function generateId() {
     setEditorSettings({ ...editorSettings, [key]: value });
   };
 
+  // Handle file selection from file explorer
+  const handleFileSelect = (filename, filepath, content) => {
+    setActiveFile(filename);
+    setActivePath(filepath || filename);
+    
+    if (content) {
+      setCode(content);
+    } else if (files[filepath]) {
+      setCode(files[filepath]);
+    } else if (files[filename]) {
+      setCode(files[filename]);
+    }
+  };
+
   // Handle terminal command
   const handleTerminalCommand = (command, data) => {
     if (command === 'run' || command === 'node main.js') {
@@ -200,8 +217,7 @@ export function generateId() {
       return terminalOutput;
     } else if (command === 'openEditor' && data) {
       // Handle opening file in editor
-      setActiveFile(data.filename);
-      setCode(data.content);
+      handleFileSelect(data.filename, data.filename, data.content);
       return null;
     }
     return null;
@@ -214,6 +230,7 @@ export function generateId() {
       updatedFiles[filename] = content;
       setFiles(updatedFiles);
       setActiveFile(filename);
+      setActivePath(filename);
       setCode(content);
       toast.success(`Created new file: ${filename}`);
       return true;
@@ -283,6 +300,7 @@ export function generateId() {
                 ]} 
                 customOutput={terminalOutput}
                 onCommand={handleTerminalCommand}
+                fileSystem={files}
               />
             </div>
           </div>
@@ -307,6 +325,7 @@ export function generateId() {
               ]} 
               customOutput={terminalOutput}
               onCommand={handleTerminalCommand}
+              fileSystem={files}
             />
           </div>
         );
@@ -336,6 +355,7 @@ export function generateId() {
                     ]} 
                     customOutput={terminalOutput}
                     onCommand={handleTerminalCommand}
+                    fileSystem={files}
                   />
                 </div>
               </>
@@ -557,7 +577,7 @@ export function generateId() {
       </AnimatePresence>
       
       <div className="flex-1 flex overflow-hidden">
-        <FileExplorer onFileSelect={setActiveFile} />
+        <FileExplorer onFileSelect={handleFileSelect} />
         {renderLayout()}
       </div>
     </div>
