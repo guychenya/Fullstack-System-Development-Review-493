@@ -23,9 +23,42 @@ const Terminal = ({ initialOutput = [], customOutput = [], onCommand, fileSystem
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [files, setFiles] = useState(fileSystem || {
-    'main.js': `// Welcome to FluxCode Editor function greetDeveloper() {console.log("Hello,Developer! Ready to code with the perfect vibe?");const vibes=['focused','creative','relaxed'];const currentVibe=vibes[Math.floor(Math.random() * vibes.length)];return \`Current vibe: \${currentVibe}\`;} greetDeveloper();`,
-    'app.js': `import React from 'react';function App() {return ( <div className="app"> <h1>FluxCode App</h1> <p>Edit this file to get started!</p> </div> );}export default App;`,
-    'utils.js': `// Utility functionsexport function formatDate(date) {return new Date(date).toLocaleDateString();}export function calculateSum(numbers) {return numbers.reduce((sum,num)=> sum + num,0);}export function generateId() {return Math.random().toString(36).substr(2,9);}`
+    'main.js': `// Welcome to FluxCode Editor
+function greetDeveloper() {
+  console.log("Hello, Developer! Ready to code with the perfect vibe?");
+  
+  const vibes = ['focused', 'creative', 'relaxed'];
+  const currentVibe = vibes[Math.floor(Math.random() * vibes.length)];
+  
+  return \`Current vibe: \${currentVibe}\`;
+}
+
+greetDeveloper();`,
+    'app.js': `import React from 'react';
+
+function App() {
+  return (
+    <div className="app">
+      <h1>FluxCode App</h1>
+      <p>Edit this file to get started!</p>
+    </div>
+  );
+}
+
+export default App;`,
+    'utils.js': `// Utility functions
+
+export function formatDate(date) {
+  return new Date(date).toLocaleDateString();
+}
+
+export function calculateSum(numbers) {
+  return numbers.reduce((sum, num) => sum + num, 0);
+}
+
+export function generateId() {
+  return Math.random().toString(36).substr(2, 9);
+}`
   });
   const [currentFile, setCurrentFile] = useState('main.js');
   

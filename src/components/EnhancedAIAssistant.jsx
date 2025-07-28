@@ -315,6 +315,7 @@ export function generateId() {
         }
       } catch (error) {
         console.error('Error parsing dropped file data:', error);
+        toast.error('Failed to process dropped file');
       }
     }
   };
@@ -593,7 +594,7 @@ export function generateId() {
 
   // Get container classes based on mode
   const getContainerClasses = () => {
-    const baseClasses = 'bg-dark-surface border border-dark-border overflow-hidden';
+    const baseClasses = 'bg-dark-surface border border-dark-border overflow-hidden ai-chat-container';
     switch (mode) {
       case 'fullscreen':
         return `${baseClasses} w-full h-full ${className}`;

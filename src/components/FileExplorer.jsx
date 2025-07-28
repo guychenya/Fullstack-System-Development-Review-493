@@ -274,6 +274,9 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     }
     
     e.target.style.opacity = '0.5';
+    
+    // Show a toast message instructing the user how to use drag and drop
+    toast.success(`Drag ${item.name} to Terminal or Chat to reference it`, { duration: 3000 });
   };
 
   const handleDragEnd = (e) => {
@@ -396,6 +399,9 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
       }, 2000);
       
       toast.success(`Drag ${item.name} to the chat to ask about it`);
+    } else {
+      // If chat element not found, provide instructions
+      toast.info('Drag files to Terminal or Chat to reference them');
     }
   };
 

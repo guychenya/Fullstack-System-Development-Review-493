@@ -61,9 +61,11 @@ body {
 .bg-dark-bg {
   background-color: var(--bg-color) !important;
 }
+
 .bg-dark-surface {
   background-color: var(--surface-color) !important;
 }
+
 .border-dark-border {
   border-color: var(--border-color) !important;
 }
@@ -72,9 +74,11 @@ body {
 .text-white {
   color: var(--text-color) !important;
 }
+
 .text-gray-300 {
   color: var(--text-secondary) !important;
 }
+
 .text-gray-400, .text-gray-500 {
   color: var(--text-muted) !important;
 }
@@ -83,9 +87,11 @@ body {
 .hover\:bg-dark-bg:hover {
   background-color: var(--hover-bg) !important;
 }
+
 .hover\:bg-dark-border:hover {
   background-color: var(--hover-bg) !important;
 }
+
 .hover\:text-white:hover {
   color: var(--text-color) !important;
 }
@@ -96,6 +102,7 @@ input, textarea, select {
   border-color: var(--border-color) !important;
   color: var(--text-color) !important;
 }
+
 input::placeholder, textarea::placeholder {
   color: var(--text-muted) !important;
   opacity: 0.7;
@@ -196,6 +203,7 @@ input[type="tel"] {
 .cm-editor {
   background-color: var(--bg-color) !important;
 }
+
 .cm-content {
   color: var(--text-color) !important;
 }
@@ -217,30 +225,39 @@ input[type="tel"] {
 .text-vibe-purple {
   color: #8B5CF6 !important;
 }
+
 .text-vibe-blue {
   color: #3B82F6 !important;
 }
+
 .text-vibe-green {
   color: #10B981 !important;
 }
+
 .text-vibe-orange {
   color: #F59E0B !important;
 }
+
 .text-vibe-pink {
   color: #EC4899 !important;
 }
+
 .bg-vibe-purple {
   background-color: #8B5CF6 !important;
 }
+
 .bg-vibe-blue {
   background-color: #3B82F6 !important;
 }
+
 .bg-vibe-green {
   background-color: #10B981 !important;
 }
+
 .bg-vibe-orange {
   background-color: #F59E0B !important;
 }
+
 .bg-vibe-pink {
   background-color: #EC4899 !important;
 }
@@ -254,6 +271,7 @@ input[type="tel"] {
 .light-theme .bg-dark-surface {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
+
 .light-theme .border-dark-border {
   border-color: #e2e8f0 !important;
 }
@@ -274,6 +292,7 @@ input[type="tel"] {
 .light-theme .cm-editor {
   background-color: #ffffff !important;
 }
+
 .light-theme .cm-content {
   color: #1a202c !important;
 }
@@ -300,15 +319,18 @@ input[type="tel"] {
   color: #1f2937 !important;
   border: 1px solid #d1d5db;
 }
+
 .social-btn-google:hover {
   background-color: #f9fafb !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
+
 .social-btn-github {
   background-color: #1f2937 !important;
   color: #ffffff !important;
   border: 1px solid #374151;
 }
+
 .social-btn-github:hover {
   background-color: #111827 !important;
 }
@@ -334,6 +356,7 @@ button:focus, input:focus, textarea:focus, select:focus {
     transform: rotate(360deg);
   }
 }
+
 .animate-spin {
   animation: spin 1s linear infinite;
 }
@@ -367,8 +390,12 @@ button:disabled {
   }
   
   @keyframes scrollbarFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
@@ -389,4 +416,92 @@ button:disabled {
   * {
     scrollbar-width: none;
   }
+}
+
+/* Add new styles for file drag and drop */
+.file-drag-indicator {
+  border: 2px dashed #8B5CF6;
+  background-color: rgba(139, 92, 246, 0.1);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.file-drag-indicator-icon {
+  color: #8B5CF6;
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.file-drag-indicator-text {
+  color: #8B5CF6;
+  font-weight: 500;
+}
+
+/* Style for file attachment indicators */
+.file-attachment {
+  display: flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 4px 8px;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
+.file-attachment-icon {
+  margin-right: 4px;
+}
+
+/* Highlight effect for file references in chat */
+.file-reference {
+  background-color: rgba(139, 92, 246, 0.1);
+  border-radius: 4px;
+  padding: 0 4px;
+  color: #8B5CF6;
+}
+
+/* Enhanced tooltip for file drag and drop */
+.tooltip {
+  position: absolute;
+  background-color: #1A1A2E;
+  border: 1px solid #2D2D44;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: white;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Specific styling for chat container to make it a valid drop target */
+.ai-chat-container {
+  position: relative;
+}
+
+.ai-chat-container.drag-over {
+  border: 2px dashed #8B5CF6 !important;
+  background-color: rgba(139, 92, 246, 0.1) !important;
+}
+
+/* File suggestion dropdown styling */
+.file-suggestion {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.file-suggestion:hover {
+  background-color: rgba(139, 92, 246, 0.1);
+}
+
+.file-suggestion-icon {
+  margin-right: 8px;
+  color: #3B82F6;
 }
