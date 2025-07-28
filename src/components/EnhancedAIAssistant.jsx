@@ -5,11 +5,11 @@ import * as FiIcons from 'react-icons/fi';
 import { useLLMStore } from '../store/llmStore';
 import toast from 'react-hot-toast';
 
-const { 
-  FiBrain, FiSend, FiX, FiLoader, FiMaximize2, FiMinimize2, FiCode, 
-  FiCopy, FiMessageCircle, FiSettings, FiTrash2, FiRefreshCw, 
-  FiChevronDown, FiCheck, FiAlertCircle, FiZap, FiCpu, FiGlobe, 
-  FiFlame, FiClipboard, FiFile, FiPaperclip, FiAtSign, FiFolder
+const {
+  FiBrain, FiSend, FiX, FiLoader, FiMaximize2, FiMinimize2, FiCode,
+  FiCopy, FiMessageCircle, FiSettings, FiTrash2, FiRefreshCw, FiChevronDown,
+  FiCheck, FiAlertCircle, FiZap, FiCpu, FiGlobe, FiFlame, FiClipboard,
+  FiFile, FiPaperclip, FiAtSign, FiFolder
 } = FiIcons;
 
 const EnhancedAIAssistant = ({ mode = 'overlay', onClose, onModeChange, className = '' }) => {
@@ -25,7 +25,7 @@ const EnhancedAIAssistant = ({ mode = 'overlay', onClose, onModeChange, classNam
     }
   ]);
   const [copiedMessageId, setCopiedMessageId] = useState(null);
-  
+
   // File reference features
   const [showFileSuggestions, setShowFileSuggestions] = useState(false);
   const [fileSuggestions, setFileSuggestions] = useState([]);
@@ -35,30 +35,22 @@ const EnhancedAIAssistant = ({ mode = 'overlay', onClose, onModeChange, classNam
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [inputRect, setInputRect] = useState(null);
   const [savedFiles, setSavedFiles] = useState([]);
-  
-  const { 
-    selectedModel, 
-    setSelectedModel, 
-    ollamaStatus, 
-    apiKeys, 
-    generateResponse, 
-    checkOllamaConnection 
-  } = useLLMStore();
-  
+  const [availableFiles, setAvailableFiles] = useState([]);
+
+  const { selectedModel, setSelectedModel, ollamaStatus, apiKeys, generateResponse, checkOllamaConnection } = useLLMStore();
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const [showScrollbar, setShowScrollbar] = useState(false);
 
-  // Simulated file system
+  // Initial file system
   const [files, setFiles] = useState({
     'main.js': `// Welcome to FluxCode Editor
 function greetDeveloper() {
   console.log("Hello, Developer! Ready to code with the perfect vibe?");
-  
   const vibes = ['focused', 'creative', 'relaxed'];
   const currentVibe = vibes[Math.floor(Math.random() * vibes.length)];
-  
   return \`Current vibe: \${currentVibe}\`;
 }
 
@@ -76,7 +68,6 @@ function App() {
 
 export default App;`,
     'utils.js': `// Utility functions
-
 export function formatDate(date) {
   return new Date(date).toLocaleDateString();
 }
@@ -89,7 +80,53 @@ export function generateId() {
   return Math.random().toString(36).substr(2, 9);
 }`
   });
-  
+
+  // Listen for file registry updates from FileExplorer
+  useEffect(() => {
+    const handleFileRegistryUpdated = (event) => {
+      const { fileNames, filePaths, fileContents } = event.detail;
+      
+      console.log('AI Assistant: File registry updated', { fileNames, filePaths });
+      
+      // Update local files state
+      setFiles(prev => ({ ...prev, ...fileContents }));
+      
+      // Update available files for suggestions
+      setAvailableFiles(fileNames || []);
+      
+      // If we're currently showing file suggestions, update them
+      if (showFileSuggestions && atSignIndex !== -1) {
+        const textAfterAt = prompt.slice(atSignIndex + 1);
+        const suggestions = fileNames.filter(file => 
+          file.toLowerCase().includes(textAfterAt.toLowerCase())
+        );
+        setFileSuggestions(suggestions);
+        console.log('Updated file suggestions:', suggestions);
+      }
+    };
+
+    document.addEventListener('fileRegistryUpdated', handleFileRegistryUpdated);
+    
+    return () => {
+      document.removeEventListener('fileRegistryUpdated', handleFileRegistryUpdated);
+    };
+  }, [showFileSuggestions, atSignIndex, prompt]);
+
+  // Listen for filesUpdated event from FileExplorer
+  useEffect(() => {
+    const handleFilesUpdated = (event) => {
+      const { files: updatedFiles } = event.detail;
+      console.log('AI Assistant: Files updated', updatedFiles);
+      setFiles(prev => ({ ...prev, ...updatedFiles }));
+    };
+
+    document.addEventListener('filesUpdated', handleFilesUpdated);
+    
+    return () => {
+      document.removeEventListener('filesUpdated', handleFilesUpdated);
+    };
+  }, []);
+
   // Load saved files from localStorage on mount
   useEffect(() => {
     const savedFilesJson = localStorage.getItem('terminal-saved-files');
@@ -97,17 +134,17 @@ export function generateId() {
       try {
         const loadedFiles = JSON.parse(savedFilesJson);
         setSavedFiles(loadedFiles);
-        
+
         // Also update the files state with saved files
         const updatedFiles = { ...files };
         loadedFiles.forEach(file => {
           updatedFiles[file.name] = file.content;
         });
         setFiles(updatedFiles);
-        
+
         setConversation(prev => [
-          ...prev, 
-          { 
+          ...prev,
+          {
             role: 'system',
             content: `${loadedFiles.length} saved file(s) loaded. Use "@" to reference them in your questions.`,
             timestamp: Date.now()
@@ -118,6 +155,20 @@ export function generateId() {
       }
     }
   }, []);
+
+  // Initialize available files on mount
+  useEffect(() => {
+    // Check if global file registry exists
+    if (window.fileRegistry && window.fileRegistry.fileNames) {
+      setAvailableFiles(window.fileRegistry.fileNames);
+      console.log('AI Assistant: Initialized with global file registry', window.fileRegistry.fileNames);
+    } else {
+      // Fall back to local files
+      const localFileNames = Object.keys(files);
+      setAvailableFiles(localFileNames);
+      console.log('AI Assistant: Initialized with local files', localFileNames);
+    }
+  }, [files]);
 
   // Enhanced LLM providers with availability status
   const llmProviders = [
@@ -204,13 +255,13 @@ export function generateId() {
   useEffect(() => {
     const handleMouseEnter = () => setShowScrollbar(true);
     const handleMouseLeave = () => setShowScrollbar(false);
-    
+
     const messagesContainer = messagesContainerRef.current;
     if (messagesContainer) {
       messagesContainer.addEventListener('mouseenter', handleMouseEnter);
       messagesContainer.addEventListener('mouseleave', handleMouseLeave);
     }
-    
+
     return () => {
       if (messagesContainer) {
         messagesContainer.removeEventListener('mouseenter', handleMouseEnter);
@@ -226,33 +277,60 @@ export function generateId() {
       setInputRect(rect);
     }
   }, [prompt, showFileSuggestions]);
-  
+
+  // Get all available files for suggestions
+  const getAllAvailableFiles = () => {
+    // First check if we have a global file registry from FileExplorer
+    if (window.fileRegistry && window.fileRegistry.fileNames) {
+      console.log('Using global file registry:', window.fileRegistry.fileNames);
+      return window.fileRegistry.fileNames;
+    }
+    
+    // Use the availableFiles state
+    if (availableFiles.length > 0) {
+      console.log('Using available files state:', availableFiles);
+      return availableFiles;
+    }
+    
+    // Fall back to local files
+    const localFiles = Object.keys(files);
+    console.log('Using local files:', localFiles);
+    return localFiles;
+  };
+
   // File suggestion system
   useEffect(() => {
     if (prompt.includes('@') && inputRef.current) {
       const atIndex = prompt.lastIndexOf('@');
       if (atIndex !== -1) {
         const textAfterAt = prompt.slice(atIndex + 1);
+        
         // Only show suggestions if we're typing right after the @ symbol
         if (cursorPosition > atIndex && !textAfterAt.includes(' ')) {
           setAtSignIndex(atIndex);
           
+          // Get all available files
+          const availableFilesList = getAllAvailableFiles();
+          console.log('File suggestion search - Available files:', availableFilesList);
+          console.log('File suggestion search - Text after @:', textAfterAt);
+          
           // Filter file suggestions based on text after @
-          const suggestions = Object.keys(files).filter(file => 
+          const suggestions = availableFilesList.filter(file => 
             file.toLowerCase().includes(textAfterAt.toLowerCase())
           );
           
+          console.log('File suggestions:', suggestions);
           setFileSuggestions(suggestions);
           setShowFileSuggestions(suggestions.length > 0);
           return;
         }
       }
     }
-    
+
     // Hide suggestions if conditions aren't met
     setShowFileSuggestions(false);
     setFileSuggestions([]);
-  }, [prompt, cursorPosition, files]);
+  }, [prompt, cursorPosition, files, availableFiles]);
 
   const getProviderFromModel = (model) => {
     const provider = llmProviders.find(p => p.models.includes(model));
@@ -270,10 +348,10 @@ export function generateId() {
       toast.error(`${newModel} is not available. Please check your API keys or Ollama connection.`);
       return;
     }
-    
+
     setSelectedModel(newModel);
     setShowModelSelector(false);
-    
+
     // Add system message about model change
     const systemMessage = {
       role: 'system',
@@ -296,20 +374,22 @@ export function generateId() {
       maxHeight: '200px'
     };
   };
-  
+
   // Handle file selection from suggestions
   const handleFileSelect = (filename) => {
     if (!filename) return;
-    
+
+    console.log('File selected:', filename);
+
     // Replace the text after @ with the selected filename
     const beforeAt = prompt.substring(0, atSignIndex + 1);
     const afterAt = prompt.substring(atSignIndex + 1);
     const afterAtNextSpace = afterAt.indexOf(' ') > -1 ? afterAt.indexOf(' ') : afterAt.length;
-    
     const newPrompt = beforeAt + filename + afterAt.substring(afterAtNextSpace);
+    
     setPrompt(newPrompt);
     setShowFileSuggestions(false);
-    
+
     // Focus the input and place cursor after the inserted filename
     if (inputRef.current) {
       inputRef.current.focus();
@@ -321,7 +401,7 @@ export function generateId() {
       }, 0);
     }
   };
-  
+
   // Handle drag and drop for files
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -338,7 +418,7 @@ export function generateId() {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDraggingOver(false);
-    
+
     // Process the dropped file data
     const fileData = e.dataTransfer.getData('application/json');
     if (fileData) {
@@ -349,20 +429,17 @@ export function generateId() {
             name: parsedData.filename,
             content: parsedData.content
           }]);
-          
+
           // Add file reference to current prompt
           if (prompt.trim() === '') {
             setPrompt(`Can you analyze this file: @${parsedData.filename}`);
           } else {
             setPrompt(`${prompt.trim()} with reference to @${parsedData.filename}`);
           }
-          
+
           // Add file to our files state so it can be referenced
-          setFiles(prev => ({
-            ...prev,
-            [parsedData.filename]: parsedData.content
-          }));
-          
+          setFiles(prev => ({ ...prev, [parsedData.filename]: parsedData.content }));
+
           // Show toast notification with option to save
           toast.success(`File "${parsedData.filename}" added to conversation`, {
             duration: 5000,
@@ -409,25 +486,42 @@ export function generateId() {
   const handleSubmit = async (e) => {
     e?.preventDefault();
     if (!prompt.trim() || isLoading) return;
-    
+
     // Check if current model is available
     if (!isModelAvailable(selectedModel)) {
       toast.error(`${selectedModel} is not available. Please select a different model or check your API keys.`);
       return;
     }
-    
+
     // Process file references in prompt (replace @filename with file content)
     let processedPrompt = prompt;
     let fileRefs = [];
     const atMatches = [...prompt.matchAll(/@(\w+\.\w+)/g)];
-    
     if (atMatches.length > 0) {
       atMatches.forEach(match => {
         const filename = match[1];
-        if (files[filename]) {
-          fileRefs.push({ filename, content: files[filename] });
-          // For display purposes, we keep the @filename in the prompt
-          // But we'll use the file references when processing
+        
+        // First check global file registry
+        let fileContent = null;
+        if (window.fileRegistry && window.fileRegistry.fileContents) {
+          // Look for the file in all possible paths
+          Object.keys(window.fileRegistry.fileContents).forEach(path => {
+            if (path.endsWith(filename) || path === filename) {
+              fileContent = window.fileRegistry.fileContents[path];
+            }
+          });
+        }
+        
+        // Fall back to local files
+        if (!fileContent && files[filename]) {
+          fileContent = files[filename];
+        }
+        
+        if (fileContent) {
+          fileRefs.push({ filename, content: fileContent });
+          console.log('Found file reference:', filename, 'Content length:', fileContent.length);
+        } else {
+          console.log('File not found:', filename, 'Available files:', Object.keys(files));
         }
       });
     }
@@ -439,7 +533,6 @@ export function generateId() {
       id: Date.now(), // Add unique ID for copying
       fileRefs: fileRefs.length > 0 ? fileRefs : undefined
     };
-    
     setConversation(prev => [...prev, userMessage]);
     setPrompt('');
     setIsLoading(true);
@@ -454,17 +547,17 @@ export function generateId() {
           ...conversation.slice(-chatSettings.maxMessages + 2) // Keep recent messages
         ];
       }
-      
+
       // Build enhanced prompt with file contents
       let enhancedPrompt = prompt;
-      
       if (fileRefs.length > 0) {
         enhancedPrompt += "\n\nHere are the referenced files:\n\n";
         fileRefs.forEach(fileRef => {
           enhancedPrompt += `\`\`\`${fileRef.filename}\n${fileRef.content}\n\`\`\`\n\n`;
         });
+        console.log('Enhanced prompt with file references:', enhancedPrompt.substring(0, 200) + '...');
       }
-      
+
       // Include dropped files if any
       if (droppedFiles.length > 0) {
         enhancedPrompt += "\n\nHere are the dropped files:\n\n";
@@ -478,7 +571,7 @@ export function generateId() {
         maxTokens: 1000,
         temperature: 0.7
       });
-      
+
       const assistantMessage = {
         role: 'assistant',
         content: response,
@@ -486,16 +579,16 @@ export function generateId() {
         model: selectedModel,
         id: Date.now() + 1 // Add unique ID for copying
       };
-      
       setConversation(prev => [...prev, assistantMessage]);
-      
+
       // Save to localStorage if enabled
       if (chatSettings.saveHistory) {
-        localStorage.setItem('ai-assistant-history', JSON.stringify([...conversation, userMessage, assistantMessage]));
+        localStorage.setItem('ai-assistant-history', JSON.stringify([
+          ...conversation, userMessage, assistantMessage
+        ]));
       }
     } catch (error) {
       console.error('Error generating response:', error);
-      
       const errorMessage = {
         role: 'assistant',
         content: `Sorry, I encountered an error: ${error.message || 'Failed to generate response'}. Please try again or switch to a different model.`,
@@ -503,7 +596,6 @@ export function generateId() {
         isError: true,
         id: Date.now() + 2 // Add unique ID for copying
       };
-      
       setConversation(prev => [...prev, errorMessage]);
       toast.error('Failed to generate response');
     } finally {
@@ -520,11 +612,9 @@ export function generateId() {
         id: Date.now()
       }
     ]);
-    
     if (chatSettings.saveHistory) {
       localStorage.removeItem('ai-assistant-history');
     }
-    
     toast.success('Conversation cleared');
   };
 
@@ -573,7 +663,7 @@ export function generateId() {
           return content;
         })
         .join('\n\n');
-        
+      
       await navigator.clipboard.writeText(conversationText);
       toast.success('Entire conversation copied to clipboard!');
     } catch (error) {
@@ -587,7 +677,7 @@ export function generateId() {
       .then(() => toast.success('Copied to clipboard'))
       .catch(() => toast.error('Failed to copy'));
   };
-  
+
   const handleKeyPress = (e) => {
     if (e.key === 'Tab' && showFileSuggestions && fileSuggestions.length > 0) {
       e.preventDefault();
@@ -598,7 +688,7 @@ export function generateId() {
       setShowFileSuggestions(false);
     }
   };
-  
+
   const handleInputChange = (e) => {
     setPrompt(e.target.value);
     if (inputRef.current) {
@@ -608,9 +698,8 @@ export function generateId() {
 
   const formatMessageContent = (content) => {
     if (!content) return '';
-    
+
     const parts = content.split(/```([^`]+)```/);
-    
     if (parts.length === 1) {
       return content.split('\n').map((line, i) => (
         <React.Fragment key={i}>
@@ -619,7 +708,7 @@ export function generateId() {
         </React.Fragment>
       ));
     }
-    
+
     return parts.map((part, index) => {
       if (index % 2 === 1) {
         const firstLineBreak = part.indexOf('\n');
@@ -655,7 +744,7 @@ export function generateId() {
           </div>
         );
       }
-      
+
       return part.split('\n').map((line, i) => (
         <React.Fragment key={`${index}-${i}`}>
           {line}
@@ -726,6 +815,7 @@ export function generateId() {
             </div>
           </div>
         </div>
+
         <div className="flex items-center space-x-2">
           {/* Copy entire conversation button */}
           <button
@@ -735,7 +825,7 @@ export function generateId() {
           >
             <SafeIcon icon={FiClipboard} className="text-sm" />
           </button>
-          
+
           {/* Model Selector */}
           <div className="relative">
             <button
@@ -746,7 +836,7 @@ export function generateId() {
               <SafeIcon icon={currentModelInfo.icon} className={currentModelInfo.color} />
               <SafeIcon icon={FiChevronDown} className="text-xs" />
             </button>
-            
+
             <AnimatePresence>
               {showModelSelector && (
                 <motion.div
@@ -763,9 +853,7 @@ export function generateId() {
                           key={modelInfo.model}
                           onClick={() => handleModelChange(modelInfo.model)}
                           className={`w-full flex items-center space-x-2 px-3 py-2 rounded-md transition-colors text-left ${
-                            selectedModel === modelInfo.model
-                              ? 'bg-vibe-purple text-white'
-                              : 'hover:bg-dark-bg text-gray-300'
+                            selectedModel === modelInfo.model ? 'bg-vibe-purple text-white' : 'hover:bg-dark-bg text-gray-300'
                           }`}
                         >
                           <SafeIcon icon={modelInfo.icon} className={modelInfo.color} />
@@ -788,7 +876,7 @@ export function generateId() {
               )}
             </AnimatePresence>
           </div>
-          
+
           {/* Mode change buttons (only in overlay mode) */}
           {mode === 'overlay' && onModeChange && (
             <>
@@ -808,17 +896,17 @@ export function generateId() {
               </button>
             </>
           )}
-          
+
           {/* Close button */}
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-red-400 transition-colors">
             <SafeIcon icon={FiX} className="text-sm" />
           </button>
         </div>
       </div>
-      
+
       {/* Chat messages with improved scrolling and copy functionality */}
-      <div 
-        ref={messagesContainerRef} 
+      <div
+        ref={messagesContainerRef}
         className={`flex-1 overflow-y-auto p-4 chat-messages-scroll smooth-scroll ${
           showScrollbar ? 'scrollbar-fade-in' : 'hover-show-scrollbar'
         } ${isDraggingOver ? 'border-2 border-dashed border-vibe-purple bg-vibe-purple/10' : ''}`}
@@ -859,7 +947,7 @@ export function generateId() {
                   />
                 </button>
               )}
-              
+
               <div className="flex items-center space-x-2 mb-1">
                 <SafeIcon
                   icon={
@@ -886,19 +974,19 @@ export function generateId() {
                   <span className="text-xs opacity-60">({message.model})</span>
                 )}
               </div>
-              
+
               {message.role !== 'system' && (
                 <div className="text-sm pr-8">
                   {formatMessageContent(message.content)}
                 </div>
               )}
-              
+
               {message.role === 'system' && (
                 <div className="text-xs italic">
                   {message.content}
                 </div>
               )}
-              
+
               {/* Show file references if any */}
               {message.fileRefs && message.fileRefs.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-white/20">
@@ -908,7 +996,7 @@ export function generateId() {
                   </div>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {message.fileRefs.map((fileRef, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         className="px-2 py-1 bg-white/10 rounded-md text-xs flex items-center"
                       >
@@ -922,7 +1010,7 @@ export function generateId() {
             </div>
           </motion.div>
         ))}
-        
+
         {isLoading && (
           <motion.div
             className="flex justify-start mb-4"
@@ -937,7 +1025,7 @@ export function generateId() {
             </div>
           </motion.div>
         )}
-        
+
         {isDraggingOver && (
           <div className="absolute inset-0 flex items-center justify-center bg-dark-bg/80 pointer-events-none">
             <div className="p-4 bg-vibe-purple/20 border-2 border-dashed border-vibe-purple rounded-lg flex flex-col items-center">
@@ -946,10 +1034,10 @@ export function generateId() {
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Enhanced Chat input with file reference support */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-dark-border">
         <div className="flex space-x-2">
@@ -961,15 +1049,17 @@ export function generateId() {
               onChange={handleInputChange}
               onKeyDown={handleKeyPress}
               onClick={() => inputRef.current && setCursorPosition(inputRef.current.selectionStart)}
-              placeholder={!isModelAvailable(selectedModel) ? `${selectedModel} not available - check settings` : "Ask me anything or use @filename to reference code..."}
+              placeholder={!isModelAvailable(selectedModel) 
+                ? `${selectedModel} not available - check settings` 
+                : `Ask me anything or use @filename to reference code... (${availableFiles.length} files available)`}
               className="w-full px-4 py-2 bg-dark-bg border border-dark-border rounded-lg focus:ring-2 focus:ring-vibe-purple focus:border-transparent outline-none text-white placeholder-gray-500"
               disabled={isLoading || !isModelAvailable(selectedModel)}
             />
-            
+
             {/* File suggestions dropdown - positioned ABOVE input */}
             <AnimatePresence>
-              {showFileSuggestions && (
-                <motion.div 
+              {showFileSuggestions && fileSuggestions.length > 0 && (
+                <motion.div
                   className="absolute bg-dark-bg border border-dark-border rounded-md shadow-lg z-50 w-64 overflow-y-auto"
                   style={getDropdownPosition()}
                   initial={{ opacity: 0, y: 10 }}
@@ -978,11 +1068,14 @@ export function generateId() {
                   transition={{ duration: 0.2 }}
                 >
                   <div className="py-1 max-h-40 overflow-y-auto">
-                    {fileSuggestions.map((file) => (
+                    <div className="px-3 py-1 text-xs text-gray-400 border-b border-dark-border">
+                      Available files ({fileSuggestions.length})
+                    </div>
+                    {fileSuggestions.map((file, idx) => (
                       <button
                         key={file}
                         onClick={() => handleFileSelect(file)}
-                        className="w-full text-left px-3 py-2 flex items-center space-x-2 hover:bg-dark-border"
+                        className="w-full text-left px-3 py-2 flex items-center space-x-2 hover:bg-dark-border transition-colors"
                       >
                         <SafeIcon icon={FiFile} className="text-vibe-blue" />
                         <span>{file}</span>
@@ -993,7 +1086,6 @@ export function generateId() {
               )}
             </AnimatePresence>
           </div>
-          
           <button
             type="submit"
             disabled={!prompt.trim() || isLoading || !isModelAvailable(selectedModel)}
@@ -1002,7 +1094,7 @@ export function generateId() {
             <SafeIcon icon={isLoading ? FiLoader : FiSend} className={isLoading ? "animate-spin" : ""} />
           </button>
         </div>
-        
+
         {/* Dropped files indicator */}
         {droppedFiles.length > 0 && (
           <div className="mt-2 p-2 bg-dark-surface rounded-md border border-dark-border flex items-center justify-between">
@@ -1010,7 +1102,7 @@ export function generateId() {
               <SafeIcon icon={FiFile} className="text-vibe-blue" />
               <span className="text-sm">{droppedFiles[0].name}</span>
             </div>
-            <button 
+            <button
               onClick={() => setDroppedFiles([])}
               className="p-1 text-gray-400 hover:text-red-400 transition-colors"
             >
@@ -1018,12 +1110,16 @@ export function generateId() {
             </button>
           </div>
         )}
-        
+
         <div className="flex justify-between items-center mt-2 text-xs">
           <div className="flex items-center space-x-3 text-gray-500">
             <span>
-              {availableModels.length > 0 ? `${availableModels.length} models available` : 'No models available'}
+              {availableModels.length > 0 
+                ? `${availableModels.length} models available` 
+                : 'No models available'}
             </span>
+            <span>•</span>
+            <span>{availableFiles.length} files available</span>
             <span>•</span>
             <span>{conversation.length} messages</span>
             {conversation.length > chatSettings.maxMessages - 10 && (
@@ -1053,7 +1149,7 @@ export function generateId() {
             </button>
           </div>
         </div>
-        
+
         {/* File storage info */}
         {savedFiles.length > 0 && (
           <div className="mt-3 border-t border-dark-border pt-3 text-xs text-gray-400 flex items-center">

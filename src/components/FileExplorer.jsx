@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SafeIcon from '../common/SafeIcon';
 import * as FiIcons from 'react-icons/fi';
@@ -82,7 +82,7 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     'src/pages/Editor.jsx': `import React from 'react';\n\nconst Editor = () => {\n  return <div>Editor Page</div>;\n};\n\nexport default Editor;`,
     'src/App.jsx': `import React from 'react';\nimport './App.css';\n\nfunction App() {\n  return (\n    <div className="App">\n      <h1>FluxCode App</h1>\n    </div>\n  );\n}\n\nexport default App;`,
     'src/main.jsx': `import React from 'react';\nimport ReactDOM from 'react-dom/client';\nimport App from './App';\n\nReactDOM.createRoot(document.getElementById('root')).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>\n);`,
-    'public/index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width,initial-scale=1.0">\n  <title>FluxCode App</title>\n</head>\n<body>\n  <div id="root"></div>\n</body>\n</html>`,
+    'public/index.html': `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>FluxCode App</title>\n</head>\n<body>\n  <div id="root"></div>\n</body>\n</html>`,
     'package.json': `{\n  "name": "fluxcode",\n  "version": "0.1.0",\n  "private": true,\n  "dependencies": {\n    "react": "^18.2.0",\n    "react-dom": "^18.2.0"\n  }\n}`,
     'README.md': `# FluxCode Project\n\nThis is a sample project created with FluxCode.`
   });
@@ -111,6 +111,25 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
       }
     }
   }, []);
+
+  // Share file data with parent components through a custom event
+  React.useEffect(() => {
+    // Create an event to share file data with other components (like Terminal and AI Assistant)
+    const shareFilesEvent = new CustomEvent('filesUpdated', {
+      detail: {
+        files: fileContents,
+        fileTree
+      }
+    });
+    document.dispatchEvent(shareFilesEvent);
+    
+    // Also store in localStorage for persistence across page refreshes
+    try {
+      localStorage.setItem('flux-file-contents', JSON.stringify(fileContents));
+    } catch (e) {
+      console.warn('Failed to store file contents in localStorage', e);
+    }
+  }, [fileContents, fileTree]);
   
   // Update the file tree with saved files
   const updateSavedFilesInTree = (files) => {
@@ -213,15 +232,19 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
       setFileTree(updatedFileTree);
       
       // Add content for the new file
-      setFileContents(prev => ({
-        ...prev,
+      const updatedFileContents = {
+        ...fileContents,
         [filePath]: content
-      }));
+      };
+      setFileContents(updatedFileContents);
       
       setNewFileName('');
       setUploadedFile(null);
       setShowNewFileModal(false);
       toast.success(`Created new file: ${name}`);
+      
+      // Trigger file registry update immediately
+      updateFileRegistry(updatedFileContents, updatedFileTree);
       return;
     }
     
@@ -250,14 +273,18 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     setFileTree(updatedFileTree);
     
     // Add empty content for the new file
-    setFileContents(prev => ({
-      ...prev,
+    const updatedFileContents = {
+      ...fileContents,
       [filePath]: getTemplateForFileType(fileName)
-    }));
+    };
+    setFileContents(updatedFileContents);
     
     setNewFileName('');
     setShowNewFileModal(false);
     toast.success(`Created new file: ${fileName}`);
+    
+    // Trigger file registry update immediately
+    updateFileRegistry(updatedFileContents, updatedFileTree);
   };
 
   const getTemplateForFileType = (fileName) => {
@@ -276,7 +303,7 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
       case 'scss':
         return `/* ${fileName} styles */\n\n.container {\n  padding: 1rem;\n}`;
       case 'html':
-        return `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width,initial-scale=1.0">\n  <title>${fileName}</title>\n</head>\n<body>\n  <h1>${fileName}</h1>\n</body>\n</html>`;
+        return `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>${fileName}</title>\n</head>\n<body>\n  <h1>${fileName}</h1>\n</body>\n</html>`;
       case 'json':
         return `{\n  "name": "${fileName.split('.')[0]}",\n  "version": "1.0.0"\n}`;
       case 'md':
@@ -433,23 +460,24 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     updatedTree = addItemToFolder(updatedTree, targetFolder.id, updatedItem);
     
     // Update file contents with new path
+    let updatedFileContents = { ...fileContents };
     if (draggedItem.type === 'file') {
       const oldPath = draggedItem.path;
       const content = fileContents[oldPath];
       
       if (content) {
-        setFileContents(prev => {
-          const updated = { ...prev };
-          delete updated[oldPath];
-          updated[newPath] = content;
-          return updated;
-        });
+        delete updatedFileContents[oldPath];
+        updatedFileContents[newPath] = content;
       }
     }
     
     setFileTree(updatedTree);
+    setFileContents(updatedFileContents);
     setDropTarget(null);
     toast.success(`Moved ${draggedItem.name} to ${targetFolder.name}`);
+    
+    // Update file registry immediately
+    updateFileRegistry(updatedFileContents, updatedTree);
     
     // If we're moving a file to the saved-files folder, save it to localStorage
     if (targetFolder.id === 'saved-files' && draggedItem.type === 'file') {
@@ -646,6 +674,74 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     reader.readAsText(file);
   };
 
+  // Helper function to extract all file names from the tree structure
+  const getAllFileNames = (tree) => {
+    let fileNames = [];
+    
+    const traverse = (items) => {
+      items.forEach(item => {
+        if (item.type === 'file') {
+          fileNames.push(item.name);
+        }
+        if (item.children) {
+          traverse(item.children);
+        }
+      });
+    };
+    
+    traverse(tree);
+    return fileNames;
+  };
+
+  // Get all file paths from the tree structure
+  const getAllFilePaths = (tree) => {
+    let filePaths = [];
+    
+    const traverse = (items) => {
+      items.forEach(item => {
+        if (item.type === 'file') {
+          filePaths.push(item.path);
+        }
+        if (item.children) {
+          traverse(item.children);
+        }
+      });
+    };
+    
+    traverse(tree);
+    return filePaths;
+  };
+
+  // Update file registry function
+  const updateFileRegistry = (updatedFileContents, updatedFileTree) => {
+    const fileNames = getAllFileNames(updatedFileTree);
+    const filePaths = getAllFilePaths(updatedFileTree);
+    
+    console.log('FileExplorer: Updating file registry', { fileNames, filePaths });
+    
+    // Create global file registry for @ references
+    window.fileRegistry = {
+      fileNames,
+      filePaths,
+      fileContents: updatedFileContents
+    };
+    
+    // Dispatch event for other components to listen to
+    const event = new CustomEvent('fileRegistryUpdated', {
+      detail: {
+        fileNames,
+        filePaths,
+        fileContents: updatedFileContents
+      }
+    });
+    document.dispatchEvent(event);
+  };
+
+  // Share all file names with global context for @ references
+  React.useEffect(() => {
+    updateFileRegistry(fileContents, fileTree);
+  }, [fileTree, fileContents]);
+
   const renderFileTree = (items, depth = 0) => {
     return items.map((item, index) => (
       <motion.div
@@ -781,6 +877,9 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                 onClick={() => {
                   toast.success('Files refreshed');
                   setShowMoreOptions(false);
+                  
+                  // Update the global file registry
+                  updateFileRegistry(fileContents, fileTree);
                 }}
                 className="w-full text-left px-4 py-2 hover:bg-dark-border text-gray-300 text-sm flex items-center space-x-2"
               >
@@ -807,6 +906,7 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                     }));
                     
                     setFileTree(updatedFileTree);
+                    updateFileRegistry(fileContents, updatedFileTree);
                     toast.success(`Created folder: ${folderName}`);
                   }
                   setShowMoreOptions(false);
