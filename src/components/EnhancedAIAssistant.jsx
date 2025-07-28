@@ -9,7 +9,7 @@ const {
   FiBrain, FiSend, FiX, FiLoader, FiMaximize2, FiMinimize2, FiCode, 
   FiCopy, FiMessageCircle, FiSettings, FiTrash2, FiRefreshCw, 
   FiChevronDown, FiCheck, FiAlertCircle, FiZap, FiCpu, FiGlobe, 
-  FiFlame, FiClipboard, FiFile, FiPaperclip, FiAtSign
+  FiFlame, FiClipboard, FiFile, FiPaperclip, FiAtSign, FiFolder
 } = FiIcons;
 
 const EnhancedAIAssistant = ({ mode = 'overlay', onClose, onModeChange, className = '' }) => {
@@ -33,6 +33,8 @@ const EnhancedAIAssistant = ({ mode = 'overlay', onClose, onModeChange, classNam
   const [atSignIndex, setAtSignIndex] = useState(-1);
   const [droppedFiles, setDroppedFiles] = useState([]);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [inputRect, setInputRect] = useState(null);
+  const [savedFiles, setSavedFiles] = useState([]);
   
   const { 
     selectedModel, 
@@ -88,6 +90,35 @@ export function generateId() {
 }`
   });
   
+  // Load saved files from localStorage on mount
+  useEffect(() => {
+    const savedFilesJson = localStorage.getItem('terminal-saved-files');
+    if (savedFilesJson) {
+      try {
+        const loadedFiles = JSON.parse(savedFilesJson);
+        setSavedFiles(loadedFiles);
+        
+        // Also update the files state with saved files
+        const updatedFiles = { ...files };
+        loadedFiles.forEach(file => {
+          updatedFiles[file.name] = file.content;
+        });
+        setFiles(updatedFiles);
+        
+        setConversation(prev => [
+          ...prev, 
+          { 
+            role: 'system',
+            content: `${loadedFiles.length} saved file(s) loaded. Use "@" to reference them in your questions.`,
+            timestamp: Date.now()
+          }
+        ]);
+      } catch (error) {
+        console.error('Error loading saved files:', error);
+      }
+    }
+  }, []);
+
   // Enhanced LLM providers with availability status
   const llmProviders = [
     {
@@ -187,6 +218,14 @@ export function generateId() {
       }
     };
   }, []);
+
+  // Update input rectangle for positioning the dropdown
+  useEffect(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setInputRect(rect);
+    }
+  }, [prompt, showFileSuggestions]);
   
   // File suggestion system
   useEffect(() => {
@@ -243,6 +282,19 @@ export function generateId() {
     };
     setConversation(prev => [...prev, systemMessage]);
     toast.success(`Switched to ${newModel}`);
+  };
+
+  // Calculate position for file suggestions dropdown
+  const getDropdownPosition = () => {
+    if (!inputRect) return {};
+    
+    // Position above the input field
+    return {
+      bottom: '100%',
+      left: 0,
+      marginBottom: '8px',
+      maxHeight: '200px'
+    };
   };
   
   // Handle file selection from suggestions
@@ -311,13 +363,47 @@ export function generateId() {
             [parsedData.filename]: parsedData.content
           }));
           
-          toast.success(`File "${parsedData.filename}" added to conversation`);
+          // Show toast notification with option to save
+          toast.success(`File "${parsedData.filename}" added to conversation`, {
+            duration: 5000,
+            action: {
+              label: 'Save',
+              onClick: () => saveFile(parsedData.filename, parsedData.content)
+            }
+          });
         }
       } catch (error) {
         console.error('Error parsing dropped file data:', error);
         toast.error('Failed to process dropped file');
       }
     }
+  };
+
+  // Save file to localStorage for persistence
+  const saveFile = (filename, content) => {
+    // Check if file already exists in saved files
+    const fileIndex = savedFiles.findIndex(f => f.name === filename);
+    const newSavedFiles = [...savedFiles];
+    
+    if (fileIndex !== -1) {
+      // Update existing file
+      newSavedFiles[fileIndex] = {
+        name: filename,
+        content: content,
+        timestamp: Date.now()
+      };
+    } else {
+      // Add new file
+      newSavedFiles.push({
+        name: filename,
+        content: content,
+        timestamp: Date.now()
+      });
+    }
+    
+    setSavedFiles(newSavedFiles);
+    localStorage.setItem('terminal-saved-files', JSON.stringify(newSavedFiles));
+    toast.success(`File ${filename} saved permanently`);
   };
 
   const handleSubmit = async (e) => {
@@ -880,14 +966,15 @@ export function generateId() {
               disabled={isLoading || !isModelAvailable(selectedModel)}
             />
             
-            {/* File suggestions dropdown */}
+            {/* File suggestions dropdown - positioned ABOVE input */}
             <AnimatePresence>
               {showFileSuggestions && (
                 <motion.div 
-                  className="absolute left-0 mt-1 bg-dark-bg border border-dark-border rounded-md shadow-lg z-50 w-64"
-                  initial={{ opacity: 0, y: -10 }}
+                  className="absolute bg-dark-bg border border-dark-border rounded-md shadow-lg z-50 w-64 overflow-y-auto"
+                  style={getDropdownPosition()}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: 10 }}
                   transition={{ duration: 0.2 }}
                 >
                   <div className="py-1 max-h-40 overflow-y-auto">
@@ -966,6 +1053,14 @@ export function generateId() {
             </button>
           </div>
         </div>
+        
+        {/* File storage info */}
+        {savedFiles.length > 0 && (
+          <div className="mt-3 border-t border-dark-border pt-3 text-xs text-gray-400 flex items-center">
+            <SafeIcon icon={FiFolder} className="text-vibe-orange mr-1" />
+            <span>{savedFiles.length} file(s) available. Type "@" to reference them.</span>
+          </div>
+        )}
       </form>
     </div>
   );

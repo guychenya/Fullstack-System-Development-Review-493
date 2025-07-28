@@ -4,19 +4,23 @@ import SafeIcon from '../common/SafeIcon';
 import * as FiIcons from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
-const { 
-  FiFolder, FiFolderOpen, FiFile, FiPlus, FiMoreHorizontal, FiTrash2, 
-  FiEdit2, FiCode, FiImage, FiFileText, FiSettings, FiCopy, FiMessageCircle
+const {
+  FiFolder, FiFolderOpen, FiFile, FiPlus, FiMoreHorizontal, FiTrash2,
+  FiEdit2, FiCode, FiImage, FiFileText, FiSettings, FiCopy, FiMessageCircle,
+  FiSave, FiInfo, FiX, FiPaperclip
 } = FiIcons;
 
 const FileExplorer = ({ onFileSelect, onFileDrag }) => {
-  const [expandedFolders, setExpandedFolders] = useState(new Set(['src']));
+  const [expandedFolders, setExpandedFolders] = useState(new Set(['src', 'saved-files']));
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [selectedFileType, setSelectedFileType] = useState('jsx');
   const [draggedItem, setDraggedItem] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const [savedFiles, setSavedFiles] = useState([]);
+  const [showFileInfoTooltip, setShowFileInfoTooltip] = useState(false);
+  
   const [fileTree, setFileTree] = useState([
     {
       id: 'src',
@@ -49,6 +53,13 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
       ]
     },
     {
+      id: 'saved-files',
+      name: 'saved-files',
+      type: 'folder',
+      path: 'saved-files',
+      children: []
+    },
+    {
       id: 'public',
       name: 'public',
       type: 'folder',
@@ -72,6 +83,52 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     'package.json': `{\n  "name": "fluxcode",\n  "version": "0.1.0",\n  "private": true,\n  "dependencies": {\n    "react": "^18.2.0",\n    "react-dom": "^18.2.0"\n  }\n}`,
     'README.md': `# FluxCode Project\n\nThis is a sample project created with FluxCode.`
   });
+  
+  // Load saved files from localStorage on mount
+  React.useEffect(() => {
+    const savedFilesJson = localStorage.getItem('terminal-saved-files');
+    if (savedFilesJson) {
+      try {
+        const loadedFiles = JSON.parse(savedFilesJson);
+        setSavedFiles(loadedFiles);
+        
+        // Update the fileTree with saved files
+        updateSavedFilesInTree(loadedFiles);
+        
+        // Update fileContents with saved files
+        const updatedContents = { ...fileContents };
+        loadedFiles.forEach(file => {
+          updatedContents[`saved-files/${file.name}`] = file.content;
+        });
+        setFileContents(updatedContents);
+        
+        toast.success(`Loaded ${loadedFiles.length} saved file(s)`);
+      } catch (error) {
+        console.error('Error loading saved files:', error);
+      }
+    }
+  }, []);
+  
+  // Update the file tree with saved files
+  const updateSavedFilesInTree = (files) => {
+    setFileTree(prevTree => {
+      return prevTree.map(item => {
+        if (item.id === 'saved-files') {
+          return {
+            ...item,
+            children: files.map(file => ({
+              id: `saved-${file.name}`,
+              name: file.name,
+              type: 'file',
+              path: `saved-files/${file.name}`,
+              timestamp: file.timestamp
+            }))
+          };
+        }
+        return item;
+      });
+    });
+  };
 
   const fileTypes = [
     { value: 'jsx', label: 'React Component (.jsx)', icon: FiCode },
@@ -355,6 +412,32 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
     setFileTree(updatedTree);
     setDropTarget(null);
     toast.success(`Moved ${draggedItem.name} to ${targetFolder.name}`);
+    
+    // If we're moving a file to the saved-files folder, save it to localStorage
+    if (targetFolder.id === 'saved-files' && draggedItem.type === 'file') {
+      const newSavedFiles = [...savedFiles];
+      const fileIndex = newSavedFiles.findIndex(f => f.name === draggedItem.name);
+      
+      if (fileIndex !== -1) {
+        // Update existing file
+        newSavedFiles[fileIndex] = {
+          name: draggedItem.name,
+          content: fileContents[draggedItem.path],
+          timestamp: Date.now()
+        };
+      } else {
+        // Add new file
+        newSavedFiles.push({
+          name: draggedItem.name,
+          content: fileContents[draggedItem.path],
+          timestamp: Date.now()
+        });
+      }
+      
+      setSavedFiles(newSavedFiles);
+      localStorage.setItem('terminal-saved-files', JSON.stringify(newSavedFiles));
+      toast.success(`File ${draggedItem.name} saved permanently`);
+    }
   };
 
   // Handle file copy to clipboard
@@ -370,6 +453,43 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
         .catch(() => {
           toast.error('Failed to copy to clipboard');
         });
+    } else {
+      toast.error('File content not found');
+    }
+  };
+  
+  // Handle saving file to localStorage
+  const handleSaveFile = (e, item) => {
+    e.stopPropagation();
+    
+    const content = fileContents[item.path];
+    if (content) {
+      const newSavedFiles = [...savedFiles];
+      const fileIndex = newSavedFiles.findIndex(f => f.name === item.name);
+      
+      if (fileIndex !== -1) {
+        // Update existing file
+        newSavedFiles[fileIndex] = {
+          name: item.name,
+          content: content,
+          timestamp: Date.now()
+        };
+        toast.success(`Updated ${item.name} in saved files`);
+      } else {
+        // Add new file
+        newSavedFiles.push({
+          name: item.name,
+          content: content,
+          timestamp: Date.now()
+        });
+        toast.success(`Saved ${item.name} to saved files`);
+      }
+      
+      setSavedFiles(newSavedFiles);
+      localStorage.setItem('terminal-saved-files', JSON.stringify(newSavedFiles));
+      
+      // Update saved-files folder in tree
+      updateSavedFilesInTree(newSavedFiles);
     } else {
       toast.error('File content not found');
     }
@@ -430,9 +550,27 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
             >
               <SafeIcon
                 icon={expandedFolders.has(item.name) ? FiFolderOpen : FiFolder}
-                className="text-vibe-orange"
+                className={item.id === 'saved-files' ? "text-vibe-orange" : "text-vibe-orange"}
               />
-              <span className="text-gray-300 text-sm select-none">{item.name}</span>
+              <span className="text-gray-300 text-sm select-none">
+                {item.name}
+                {item.id === 'saved-files' && item.children?.length > 0 && (
+                  <span className="text-xs ml-2 text-vibe-purple">
+                    ({item.children.length})
+                  </span>
+                )}
+              </span>
+              {item.id === 'saved-files' && (
+                <button
+                  className="text-xs text-gray-400 hover:text-vibe-purple"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowFileInfoTooltip(!showFileInfoTooltip);
+                  }}
+                >
+                  <SafeIcon icon={FiInfo} className="text-xs" />
+                </button>
+              )}
             </div>
             
             {expandedFolders.has(item.name) && item.children && (
@@ -459,6 +597,13 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
                 title="Drag to chat"
               >
                 <SafeIcon icon={FiMessageCircle} className="text-xs" />
+              </button>
+              <button
+                onClick={(e) => handleSaveFile(e, item)}
+                className="p-0.5 text-gray-400 hover:text-vibe-green transition-colors"
+                title="Save file permanently"
+              >
+                <SafeIcon icon={FiSave} className="text-xs" />
               </button>
               <button
                 onClick={(e) => handleCopyFile(e, item)}
@@ -565,6 +710,34 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
           )}
         </AnimatePresence>
         
+        {/* File Info Tooltip */}
+        <AnimatePresence>
+          {showFileInfoTooltip && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute left-4 top-12 w-56 bg-dark-bg border border-dark-border rounded-lg shadow-lg z-50 p-3"
+            >
+              <h4 className="text-sm font-medium text-white mb-2">
+                Saved Files
+              </h4>
+              <p className="text-xs text-gray-400 mb-2">
+                Files in this folder are permanently saved in your browser's local storage.
+              </p>
+              <p className="text-xs text-gray-400">
+                Drag files here to save them, or use the <SafeIcon icon={FiSave} className="text-xs inline mx-1" /> button.
+              </p>
+              <button 
+                onClick={() => setShowFileInfoTooltip(false)}
+                className="absolute top-2 right-2 text-gray-400 hover:text-white"
+              >
+                <SafeIcon icon={FiX} className="text-xs" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         {/* New File Modal */}
         <AnimatePresence>
           {showNewFileModal && (
@@ -642,8 +815,9 @@ const FileExplorer = ({ onFileSelect, onFileDrag }) => {
       </div>
       
       <div className="p-2 overflow-auto h-full sidebar-scroll hover-show-scrollbar smooth-scroll">
-        <div className="text-xs text-gray-500 mb-2 px-2">
-          💡 Drag files to terminal or chat to analyze
+        <div className="text-xs text-gray-500 mb-2 px-2 flex items-center">
+          <SafeIcon icon={FiPaperclip} className="mr-1 text-xs" />
+          <span>Drag files to terminal or chat to analyze</span>
         </div>
         {renderFileTree(fileTree)}
       </div>

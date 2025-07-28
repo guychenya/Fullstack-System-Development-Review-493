@@ -67,15 +67,45 @@ export function generateId() {
   const [fileSuggestions, setFileSuggestions] = useState([]);
   const [cursorPosition, setCursorPosition] = useState(0);
   const [atSignIndex, setAtSignIndex] = useState(-1);
+  const [inputRect, setInputRect] = useState(null);
   
   // Drag and drop files
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [droppedFiles, setDroppedFiles] = useState([]);
+  const [savedFiles, setSavedFiles] = useState([]);
   
   const terminalRef = useRef(null);
   const inputRef = useRef(null);
   const [showScrollbar, setShowScrollbar] = useState(false);
   const { selectedModel, generateResponse } = useLLMStore();
+
+  // Load saved files from localStorage on mount
+  useEffect(() => {
+    const savedFilesJson = localStorage.getItem('terminal-saved-files');
+    if (savedFilesJson) {
+      try {
+        const loadedFiles = JSON.parse(savedFilesJson);
+        setSavedFiles(loadedFiles);
+        
+        // Also update the files state with saved files
+        const updatedFiles = { ...files };
+        loadedFiles.forEach(file => {
+          updatedFiles[file.name] = file.content;
+        });
+        setFiles(updatedFiles);
+        
+        setCommands(prev => [
+          ...prev, 
+          { 
+            type: 'info', 
+            content: `📚 Loaded ${loadedFiles.length} saved file(s). Use "@" to reference them or type "ls" to list all files.` 
+          }
+        ]);
+      } catch (error) {
+        console.error('Error loading saved files:', error);
+      }
+    }
+  }, []);
 
   // Add custom output when it changes
   useEffect(() => {
@@ -116,6 +146,14 @@ export function generateId() {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [commands]);
+
+  // Update input rectangle for positioning the dropdown
+  useEffect(() => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setInputRect(rect);
+    }
+  }, [currentCommand, showFileSuggestions]);
 
   // File suggestion system
   useEffect(() => {
@@ -203,6 +241,9 @@ export function generateId() {
   pwd                  Print working directory
   echo <message>       Display a message
   vibe                 Show current coding vibe
+  save <file>          Save a file to local storage for persistence
+  files                List all saved files in local storage
+  delete <file>        Delete a file from local storage
   npm <command>        Simulate npm commands
   git <command>        Simulate git commands
   
@@ -221,6 +262,84 @@ Special Features:
           type: 'output', 
           content: Object.keys(files).join('  ') 
         });
+        break;
+      
+      case 'files':
+        if (savedFiles.length === 0) {
+          newCommands.push({ type: 'output', content: 'No saved files in local storage.' });
+        } else {
+          newCommands.push({ 
+            type: 'output', 
+            content: 'Saved files in local storage:\n' + 
+                     savedFiles.map(file => `- ${file.name} (${new Date(file.timestamp).toLocaleString()})`).join('\n')
+          });
+        }
+        break;
+      
+      case 'save':
+        if (args.length < 2) {
+          newCommands.push({ type: 'error', content: 'Usage: save <filename>' });
+        } else {
+          const filename = args[1];
+          if (files[filename]) {
+            // Check if file already exists in saved files
+            const fileIndex = savedFiles.findIndex(f => f.name === filename);
+            const newSavedFiles = [...savedFiles];
+            
+            if (fileIndex !== -1) {
+              // Update existing file
+              newSavedFiles[fileIndex] = {
+                name: filename,
+                content: files[filename],
+                timestamp: Date.now()
+              };
+              newCommands.push({ 
+                type: 'output', 
+                content: `File ${filename} updated in local storage.` 
+              });
+            } else {
+              // Add new file
+              newSavedFiles.push({
+                name: filename,
+                content: files[filename],
+                timestamp: Date.now()
+              });
+              newCommands.push({ 
+                type: 'output', 
+                content: `File ${filename} saved to local storage.` 
+              });
+            }
+            
+            setSavedFiles(newSavedFiles);
+            localStorage.setItem('terminal-saved-files', JSON.stringify(newSavedFiles));
+            toast.success(`File ${filename} saved successfully!`);
+          } else {
+            newCommands.push({ type: 'error', content: `File not found: ${filename}` });
+          }
+        }
+        break;
+        
+      case 'delete':
+        if (args.length < 2) {
+          newCommands.push({ type: 'error', content: 'Usage: delete <filename>' });
+        } else {
+          const filename = args[1];
+          const fileIndex = savedFiles.findIndex(f => f.name === filename);
+          
+          if (fileIndex !== -1) {
+            const newSavedFiles = savedFiles.filter((_, i) => i !== fileIndex);
+            setSavedFiles(newSavedFiles);
+            localStorage.setItem('terminal-saved-files', JSON.stringify(newSavedFiles));
+            
+            newCommands.push({ 
+              type: 'output', 
+              content: `File ${filename} deleted from local storage.` 
+            });
+            toast.success(`File ${filename} deleted successfully!`);
+          } else {
+            newCommands.push({ type: 'error', content: `File not found in saved files: ${filename}` });
+          }
+        }
         break;
         
       case 'cat':
@@ -534,7 +653,7 @@ Special Features:
       } else {
         // Simple tab completion for file names
         const args = currentCommand.trim().split(' ');
-        if (args.length > 0 && ['cat', 'edit', 'analyze', 'improve', 'explain', 'fix', 'run'].includes(args[0].toLowerCase())) {
+        if (args.length > 0 && ['cat', 'edit', 'analyze', 'improve', 'explain', 'fix', 'run', 'save', 'delete'].includes(args[0].toLowerCase())) {
           // If we have a partial filename
           if (args.length > 1) {
             const partialName = args[1];
@@ -634,6 +753,15 @@ Special Features:
               content: `📎 File "${parsedData.filename}" dropped. Type a command to analyze it or press Enter to run "analyze ${parsedData.filename}"` 
             }
           ]);
+          
+          // Add to files state automatically
+          setFiles(prev => ({
+            ...prev,
+            [parsedData.filename]: parsedData.content
+          }));
+          
+          // Show toast notification
+          toast.success(`File "${parsedData.filename}" added and ready to use. Type "save ${parsedData.filename}" to save it permanently.`);
         }
       } catch (error) {
         console.error('Error parsing dropped file data:', error);
@@ -659,6 +787,15 @@ Special Features:
       ...prev,
       [filename]: content
     }));
+    
+    // Show notification
+    setCommands(prev => [...prev, 
+      { 
+        type: 'info', 
+        content: `📄 File "${filename}" created. Type "save ${filename}" to save it permanently.` 
+      }
+    ]);
+    
     return true;
   };
 
@@ -672,6 +809,19 @@ Special Features:
         <code>{content}</code>
       </pre>
     );
+  };
+
+  // Calculate position for file suggestions dropdown
+  const getDropdownPosition = () => {
+    if (!inputRect) return {};
+    
+    // Position above the input field
+    return {
+      bottom: '100%',
+      left: 0,
+      marginBottom: '8px',
+      maxHeight: '200px'
+    };
   };
 
   return (
@@ -779,14 +929,15 @@ Special Features:
               autoFocus
             />
             
-            {/* File suggestions dropdown */}
+            {/* File suggestions dropdown - positioned ABOVE input */}
             <AnimatePresence>
               {showFileSuggestions && (
                 <motion.div 
-                  className="absolute left-0 mt-1 bg-dark-bg border border-dark-border rounded-md shadow-lg z-50 w-64"
-                  initial={{ opacity: 0, y: -10 }}
+                  className="absolute bg-dark-bg border border-dark-border rounded-md shadow-lg z-50 w-64 overflow-y-auto"
+                  style={getDropdownPosition()}
+                  initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: 10 }}
                   transition={{ duration: 0.2 }}
                 >
                   <div className="py-1 max-h-40 overflow-y-auto">
@@ -820,6 +971,14 @@ Special Features:
             >
               <SafeIcon icon={FiX} className="text-sm" />
             </button>
+          </div>
+        )}
+        
+        {/* File storage info */}
+        {savedFiles.length > 0 && (
+          <div className="mt-3 border-t border-dark-border pt-3 text-xs text-gray-400 flex items-center">
+            <SafeIcon icon={FiFolder} className="text-vibe-orange mr-1" />
+            <span>{savedFiles.length} file(s) in storage. Type "files" to list them.</span>
           </div>
         )}
       </div>
